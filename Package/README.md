@@ -47,5 +47,5 @@ These settings are not included in the UI. One can utilize them by changing the 
 - <b>`runSpeed`</b> - Multiplies the player's run speed. 
 - <b>`jumpForce`</b> - Multiplies the player's jump force. Note due to how physics works, two times jump force is four times jump height. Specifically, Height = JumpForce^2 / 2g. 
 - <b>`sailForce`</b> - Multiplies the speed at which boats sail, stacks with <b>`Boat Speed<b>`</b>. 
-- <b>`unlockPieces`</b> - All build Pieces are immediately unlocked without acquiring the Materials.
-- <b>`unlockRecipes`</b> - All crafting Recipes are immediately unlocked without acquiring the materials or Crafting Station levels. Warning, Recipes cannot be un-unlocked.
+- <b>`unlockPieces`</b> - All build Pieces are immediately unlocked without acquiring the Materials. Warning, cannot be undone.
+- <b>`unlockRecipes`</b> - All crafting Recipes are immediately unlocked without acquiring the materials or Crafting Station levels. Warning, cannot be undone.

@@ -47,8 +47,8 @@ These settings are not included in the UI. One can utilize them by changing the 
 - <b>`runSpeed`</b> - Multiplies the player's run speed. 
 - <b>`jumpForce`</b> - Multiplies the player's jump force. Note due to how physics works, two times jump force is four times jump height. Specifically, Height = JumpForce^2 / 2g. 
 - <b>`sailForce`</b> - Multiplies the speed at which boats sail, stacks with <b>`Boat Speed<b>`</b>. 
-- <b>`unlockPieces`</b> - All build Pieces are immediately unlocked without acquiring the Materials.
-- <b>`unlockRecipes`</b> - All crafting Recipes are immediately unlocked without acquiring the materials or Crafting Station levels. Warning, Recipes cannot be un-unlocked.
+- <b>`unlockPieces`</b> - All build Pieces are immediately unlocked without acquiring the Materials. Warning, cannot be undone.
+- <b>`unlockRecipes`</b> - All crafting Recipes are immediately unlocked without acquiring the materials or Crafting Station levels. Warning, cannot be undone.
 
 ## Installation
 
@@ -79,8 +79,8 @@ These settings are not included in the UI. One can utilize them by changing the 
 	- `<Steam Location>/steamapps/common/Valheim/`
 	- `<Steam Location>/steamapps/common/Valheim_Dev/`
 2. Install `BepInEx` to `Valheim_Dev`
-	1. Download from [BepInEx releases](https://github.com/BepInEx/BepInEx/releases/latest)
+	1. Download from [BepInExPack Valheim](https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/)
 	2. Extract contents
-	3. Copy all contents to `<Steam Location>/steamapps/common/Valheim_Dev/`
+	3. Copy all contents of `/BepInExPack_Valheim/` to `<Steam Location>/steamapps/common/Valheim_Dev/`
 3. Edit `Speedchoice.csproj`, update `<ValheimPath>` to point at `<Steam Location>/steamapps/common/Valheim_Dev/`
 4. Compile, Build, Run the `Debug` profile. 

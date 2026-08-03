@@ -485,7 +485,7 @@ namespace Speedchoice {
 			}
 		}
 		#endregion
-		#region save, load: Game.Start
+		#region save, load, harmlessStructures, noBuildStations, unlockPieces: Game.Start
 		private static string GetSavePath(World world) {
 			string baseDir = Path.Combine(Utils.GetSaveDataPath(FileHelpers.FileSource.Local), "worlds");
 			return Path.Combine(baseDir, $"{world.m_fileName}_speedchoice.json");
@@ -508,33 +508,101 @@ namespace Speedchoice {
 				settings = new();
 			}
 		}
-		[HarmonyPatch(typeof(Game), nameof(Game.Start))]
-		private class Game_Start {
-			private static void Postfix() {
-				Load(ZNet.m_world);
-			}
-		}
 		#endregion
-		#region server connections: ZNet.RPC_PeerInfo, ZNet.Awake
-		[HarmonyPatch(typeof(ZNet), nameof(ZNet.RPC_PeerInfo))]
-		private class ZNet_RPC_PeerInfo {
-			private static void Postfix(ZRpc rpc) {
-				if (!ZNet.instance.IsServer()) {
-					return;
-				}
+		#region ZRoutedRpc Registers, harmlessStructures, noBuildStations, unlockPieces: ZoneSystem_Start
+		private struct Prefab {
+			public string name;
+			public string aoe;
+			public HitData.DamageTypes damage;
 
-				rpc.Invoke("FromServer", FromSettings());
+			public Prefab(string name, string aoe, HitData.DamageTypes damage) {
+				this.name = name;
+				this.aoe = aoe;
+				this.damage = damage;
 			}
 		}
-		[HarmonyPatch(typeof(ZNet), nameof(ZNet.Awake))]
-		private class ZNet_Awake {
+		private static readonly List<Prefab> harmingPrefabs = new() {
+            // Stakes
+            new("piece_sharpstakes", "HIT AREA",  new() { m_pierce = 15 }),
+			new("piece_dvergr_sharpstakes", "Colliders/HIT AREA",  new() { m_pierce = 15 }),
+			new("piece_stakewall_blackwood", "HIT AREA",  new() { m_pierce = 120 }),
+            // Fires
+            new("piece_brazierfloor02", "_enabled_high/FireBurn",  new() { m_fire = 10 }),
+			new("bonfire", "_enabled/FireBurn",  new() { m_fire = 20 }),
+			new("fire_pit", "_enabled_high/FireBurn",  new() { m_fire = 10 }),
+			new("piece_brazierceiling01", "_enabled_high/FireBurn",  new() { m_fire = 10 }),
+			new("hearth", "_enabled_high/FireBurn",  new() { m_fire = 10 }),
+			new("fire_pit_iron", "_enabled_high/FireBurn",  new() { m_fire = 10 }),
+			new("piece_brazierfloor01", "_enabled_high/FireBurn",  new() { m_fire = 10 }),
+            // Snap Trap
+            new("piece_trap_troll", "Damage Area",  new() { m_blunt = 50, m_pierce = 50, m_chop = 50 })
+		};
+		[HarmonyPatch(typeof(ZoneSystem), nameof(ZoneSystem.Start))]
+		private class ZoneSystem_Start {
 			private static void Postfix() {
+				if (ZNet.instance.IsServer()) {
+					Load(ZNet.m_world);
+
+					// harmlessStructures
+					if (settings.harmlessPieces) {
+						foreach (Prefab prefab in harmingPrefabs) {
+							ZNetScene.instance.GetPrefab(prefab.name).transform.Find(prefab.aoe).GetComponent<Aoe>().m_damage = new();
+						}
+					}
+					else {
+						foreach (Prefab prefab in harmingPrefabs) {
+							ZNetScene.instance.GetPrefab(prefab.name).transform.Find(prefab.aoe).GetComponent<Aoe>().m_damage = prefab.damage;
+						}
+					}
+
+					// noBuildStations
+					if (settings.noBuildStations) {
+						ZoneSystem.instance.SetGlobalKey(GlobalKeys.NoWorkbench);
+					}
+					else {
+						ZoneSystem.instance.RemoveGlobalKey(GlobalKeys.NoWorkbench);
+					}
+
+					// unlockPieces
+					if (settings.unlockPieces) {
+						ZoneSystem.instance.SetGlobalKey(GlobalKeys.AllPiecesUnlocked);
+					}
+					else {
+						ZoneSystem.instance.RemoveGlobalKey(GlobalKeys.AllPiecesUnlocked);
+					}
+				}
 				ZRoutedRpc.instance.Register<string>("FromServer", FromServer);
+				ZRoutedRpc.instance.Register<string>("StartTimer", StartTimer);
 			}
 			private static void FromServer(long sender, string json) {
 				ToSettings(json);
 				if (settings.isTimerRunning) {
 					speedchoice.StartCoroutine(TimerUpdate());
+				}
+			}
+			private static void StartTimer(long sender, string json) {
+				if (!settings.isTimerRunning) {
+					settings.isTimerRunning = true;
+					speedchoice.StartCoroutine(TimerUpdate());
+				}
+			}
+		}
+		#endregion
+		#region server connections: ZRoutedRpc_AddPeer, ZRoutedRpc_RemovePeer
+		[HarmonyPatch(typeof(ZRoutedRpc), nameof(ZRoutedRpc.AddPeer))]
+		private class ZRoutedRpc_AddPeer {
+			private static void Postfix(ZRoutedRpc __instance, ZNetPeer peer) {
+				if (__instance.m_server) {
+					__instance.InvokeRoutedRPC(peer.m_uid, "FromServer", FromSettings());
+				}
+			}
+		}
+		[HarmonyPatch(typeof(ZRoutedRpc), nameof(ZRoutedRpc.RemovePeer))]
+		private class ZRoutedRpc_RemovePeer {
+			private static void Postfix(ZRoutedRpc __instance) {
+				if (__instance.m_server && __instance.m_peers.Count < 1) {
+					speedchoice.StopAllCoroutines();
+					settings.isTimerRunning = false;
 				}
 			}
 		}
@@ -803,7 +871,7 @@ namespace Speedchoice {
 		private readonly static List<ItemDrop.ItemData.ItemType> drops = new() {
 			ItemDrop.ItemData.ItemType.Material, ItemDrop.ItemData.ItemType.Trophy
 		};
-		private readonly static List<String> exhasts = new() {
+		private readonly static List<String> exhausts = new() {
 			"$item_barberkit", "$item_barleyflour", "$item_barrelrings", "$item_dragontear", "$item_scythehandle", "$item_yagluththing"
 		};
 		private readonly static List<String> retains = new() {
@@ -823,7 +891,7 @@ namespace Speedchoice {
 			"$item_trophy_seekerqueen", "$item_trophy_elder", "$item_vikingcupcake_uncooked", "$item_volture_meat", "$item_witheredbone", "$item_wolf_meat", "$item_wood"
 		};
 		private static void RemoveItem(Inventory inventory, ItemDrop.ItemData itemData) {
-			if (settings.dropMaterials && (drops.Contains(itemData.m_shared.m_itemType) || exhasts.Contains(itemData.m_shared.m_name)) && !retains.Contains(itemData.m_shared.m_name)) {
+			if (settings.dropMaterials && (drops.Contains(itemData.m_shared.m_itemType) || exhausts.Contains(itemData.m_shared.m_name)) && !retains.Contains(itemData.m_shared.m_name)) {
 				inventory.RemoveItem(itemData);
 			}
 		}
@@ -862,7 +930,7 @@ namespace Speedchoice {
 		#endregion
 		#region fastCrops: Plant.TimeSincePlanted
 		[HarmonyPatch(typeof(Plant), nameof(Plant.TimeSincePlanted))]
-		private static class Plant_TimeSincePlantedh {
+		private static class Plant_TimeSincePlanted {
 			private static void Postfix(Plant __instance, ref double __result) {
 				if (settings.fastCrops) {
 					__result = (double) __instance.m_growTimeMax + 1;
@@ -888,7 +956,145 @@ namespace Speedchoice {
 			}
 		}
 		#endregion
-		#region harmlessPieces, noBuildStations, showDeaths, showTimer, unlockPieces, unlockRecipes, runSpeed, jumpForce: FejdStartup.Start, Player.OnSpawned
+		#region instantUpgrades: ObjectDB.Awake, InventoryGui.SetupCrafting
+		private static Dictionary<string, Recipe> upgradeAbles = new();
+		[HarmonyPatch(typeof(ObjectDB), nameof(ObjectDB.Awake))]
+		private class ObjectDB_Awake {
+			private static void Postfix() {
+				upgradeAbles.Clear();
+				foreach (Recipe recipe in ObjectDB.instance.m_recipes) {
+					if (recipe.m_item != null && recipe.m_item.m_itemData.m_shared.m_maxQuality > 1) {
+						upgradeAbles.Add(recipe.m_item.m_itemData.m_shared.m_name, recipe);
+					}
+				}
+			}
+		}
+
+		private static void UpgradeInventory(Player player) {
+			if (!settings.instantUpgrades) {
+				return;
+			}
+			CraftingStation station = player.GetCurrentCraftingStation();
+			if (station == null) {
+				return;
+			}
+			foreach (ItemDrop.ItemData item in player.GetInventory().GetAllItems()) {
+				if (upgradeAbles.TryGetValue(item.m_shared.m_name, out Recipe recipe)) {
+					if ((recipe.m_craftingStation != null && station.m_name == recipe.m_craftingStation.m_name) ||
+						(recipe.m_craftingStation == null && station.m_name == "$piece_workbench")) {
+						int maxLevel = MaxLevel(station, recipe);
+						if (item.m_quality < maxLevel) {
+							item.m_quality = maxLevel;
+							item.m_durability = item.m_shared.m_maxDurability + item.m_shared.m_durabilityPerLevel * item.m_quality;
+						}
+					}
+				}
+			}
+		}
+		private static int MaxLevel(CraftingStation station, Recipe recipe) {
+			if (settings.noCraftLevels) {
+				return 4;
+			}
+			int stationLevel = 1;
+			if (station != null) {
+				stationLevel = station.GetLevel();
+			}
+			int maxLevel = stationLevel - recipe.m_minStationLevel;
+			if (recipe.m_minStationLevel != 0) {
+				maxLevel++;
+			}
+			if (maxLevel > 4) {
+				maxLevel = 4;
+			}
+			return maxLevel;
+		}
+		[HarmonyPatch(typeof(InventoryGui), nameof(InventoryGui.SetupCrafting))]
+		private class InventoryGui_SetupCrafting {
+			private static void Prefix() {
+				UpgradeInventory(Player.m_localPlayer);
+			}
+		}
+		#endregion
+		#region noBuildStations: Hud.SetUpPieceInfo
+		[HarmonyPatch(typeof(Hud), nameof(Hud.SetupPieceInfo))]
+		private class Hud_SetupPieceInfo {
+			private static void Postfix(Hud __instance, Piece piece) {
+				if (settings.noBuildStations) {
+					GameObject obj = __instance.m_requirementItems[piece.m_resources.Length];
+					Image component = obj.transform.Find("res_icon").GetComponent<Image>();
+					TMP_Text component3 = obj.transform.Find("res_amount").GetComponent<TMP_Text>();
+					component.color = Color.white;
+					component3.text = "";
+					component3.color = Color.white;
+				}
+			}
+		}
+		#endregion
+		#region noCraftCost: Player.HaveRequirementItems, InventoryGui.SetupRequirement, InventoryGui.DoCrafting
+		[HarmonyPatch(typeof(Player), nameof(Player.HaveRequirementItems))]
+		private class Player_HaveRequirementItems {
+			private static void Postfix(bool discover, ref bool __result) {
+				if (settings.noCraftCost && !discover) {
+					__result = true;
+				}
+			}
+		}
+
+		[HarmonyPatch(typeof(InventoryGui), nameof(InventoryGui.SetupRequirement))]
+		private class InventoryGui_SetupRequirement {
+			private static void Postfix(Transform elementRoot) {
+				if (settings.noCraftCost) {
+					elementRoot.transform.Find("res_amount").GetComponent<TMP_Text>().color = Color.white;
+				}
+			}
+		}
+
+		[HarmonyPatch(typeof(InventoryGui), nameof(InventoryGui.DoCrafting))]
+		private class InventoryGui_DoCrafting {
+			private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions) {
+				var targetMethod = typeof(Player).GetMethod(nameof(Player.NoCostCheat));
+				var replacementMethod = typeof(InventoryGui_DoCrafting).GetMethod(nameof(InventoryGui_DoCrafting.NoCostCheat));
+
+				foreach (var instruction in instructions) {
+					if (instruction.Calls(targetMethod)) {
+						yield return new CodeInstruction(OpCodes.Call, replacementMethod);
+					}
+					else {
+						yield return instruction;
+					}
+				}
+			}
+			public bool NoCostCheat() {
+				if (settings.noCraftCost) {
+					return true;
+				}
+				return Player.m_localPlayer.m_noPlacementCost;
+			}
+			private static void Postfix(Player player) {
+				UpgradeInventory(player);
+			}
+		}
+		#endregion
+		#region noCraftLevels: Player.RequiredCraftingStation, InventoryGui.UpdateRecipe
+		[HarmonyPatch(typeof(Player), nameof(Player.RequiredCraftingStation))]
+		private class Player_RequiredCraftingStation {
+			private static void Prefix(ref bool checkLevel) {
+				if (settings.noCraftLevels) {
+					checkLevel = false;
+				}
+			}
+		}
+
+		[HarmonyPatch(typeof(InventoryGui), nameof(InventoryGui.UpdateRecipe))]
+		private class InventoryGui_UpdateRecipe {
+			private static void Postfix(InventoryGui __instance) {
+				if (settings.noCraftLevels) {
+					__instance.m_minStationLevelText.color = __instance.m_minStationLevelBasecolor;
+				}
+			}
+		}
+		#endregion
+		#region showDeaths, showTimer, unlockRecipes, runSpeed, jumpForce: FejdStartup.Start, Player.OnSpawned
 		private static TMP_FontAsset font;
 		[HarmonyPatch(typeof(FejdStartup), nameof(FejdStartup.Start))]
 		private class FejdStartup_Start {
@@ -897,33 +1103,6 @@ namespace Speedchoice {
 			}
 		}
 
-		private struct Prefab {
-			public string name;
-			public string aoe;
-			public HitData.DamageTypes damage;
-
-			public Prefab(string name, string aoe, HitData.DamageTypes damage) {
-				this.name = name;
-				this.aoe = aoe;
-				this.damage = damage;
-			}
-		}
-		private static readonly List<Prefab> harmingPrefabs = new() {
-            // Stakes
-            new("piece_sharpstakes", "HIT AREA",  new() { m_pierce = 15 }),
-			new("piece_dvergr_sharpstakes", "Colliders/HIT AREA",  new() { m_pierce = 15 }),
-			new("piece_stakewall_blackwood", "HIT AREA",  new() { m_pierce = 120 }),
-            // Fires
-            new("piece_brazierfloor02", "_enabled_high/FireBurn",  new() { m_fire = 10 }),
-			new("bonfire", "_enabled/FireBurn",  new() { m_fire = 20 }),
-			new("fire_pit", "_enabled_high/FireBurn",  new() { m_fire = 10 }),
-			new("piece_brazierceiling01", "_enabled_high/FireBurn",  new() { m_fire = 10 }),
-			new("hearth", "_enabled_high/FireBurn",  new() { m_fire = 10 }),
-			new("fire_pit_iron", "_enabled_high/FireBurn",  new() { m_fire = 10 }),
-			new("piece_brazierfloor01", "_enabled_high/FireBurn",  new() { m_fire = 10 }),
-            // Snap Trap
-            new("piece_trap_troll", "Damage Area",  new() { m_blunt = 50, m_pierce = 50, m_chop = 50 })
-		};
 		private static Sprite GetItemIcon(string itemPrefab) {
 			return ObjectDB.instance.GetItemPrefab(itemPrefab).GetComponent<ItemDrop>().m_itemData.m_shared.m_icons[0];
 		}
@@ -1004,26 +1183,6 @@ namespace Speedchoice {
 				return tmpGui;
 			}
 			private static void Postfix(Player __instance) {
-				// harmlessStructures
-				if (settings.harmlessPieces) {
-					foreach (Prefab prefab in harmingPrefabs) {
-						ZNetScene.instance.GetPrefab(prefab.name).transform.Find(prefab.aoe).GetComponent<Aoe>().m_damage = new();
-					}
-				}
-				else {
-					foreach (Prefab prefab in harmingPrefabs) {
-						ZNetScene.instance.GetPrefab(prefab.name).transform.Find(prefab.aoe).GetComponent<Aoe>().m_damage = prefab.damage;
-					}
-				}
-
-				// noBuildStations
-				if (settings.noBuildStations) {
-					ZoneSystem.instance.SetGlobalKey(GlobalKeys.NoWorkbench);
-				}
-				else {
-					ZoneSystem.instance.RemoveGlobalKey(GlobalKeys.NoWorkbench);
-				}
-
 				// showDeaths
 				healthpanel = Hud.instance.transform.Find("hudroot/healthpanel");
 				int y = 0;
@@ -1042,13 +1201,6 @@ namespace Speedchoice {
 					timer = AddTimer();
 				}
 
-				// unlockPieces
-				if (settings.unlockPieces) {
-					ZoneSystem.instance.SetGlobalKey(GlobalKeys.AllPiecesUnlocked);
-				}
-				else {
-					ZoneSystem.instance.RemoveGlobalKey(GlobalKeys.AllPiecesUnlocked);
-				}
 				// unlockRecipes
 				if (settings.unlockRecipes && !unlockedRecipes) {
 					unlockedRecipes = true;
@@ -1074,139 +1226,6 @@ namespace Speedchoice {
 			}
 		}
 		#endregion
-		#region instantUpgrades: ObjectDB.Awake, InventoryGui.SetupCrafting
-		private static Dictionary<string, Recipe> upgradeAbles = new();
-		[HarmonyPatch(typeof(ObjectDB), nameof(ObjectDB.Awake))]
-		private class ObjectDB_Awake {
-			private static void Postfix() {
-				upgradeAbles.Clear();
-				foreach (Recipe recipe in ObjectDB.instance.m_recipes) {
-					if (recipe.m_item != null && recipe.m_item.m_itemData.m_shared.m_maxQuality > 1) {
-						upgradeAbles.Add(recipe.m_item.m_itemData.m_shared.m_name, recipe);
-					}
-				}
-			}
-		}
-
-		private static void UpgradeInventory(Player player) {
-			if (!settings.instantUpgrades) {
-				return;
-			}
-			CraftingStation station = player.GetCurrentCraftingStation();
-			if (station == null) {
-				return;
-			}
-			foreach (ItemDrop.ItemData item in player.GetInventory().GetAllItems()) {
-				if (upgradeAbles.TryGetValue(item.m_shared.m_name, out Recipe recipe)) {
-					if ((recipe.m_craftingStation != null && station.m_name == recipe.m_craftingStation.m_name) ||
-						(recipe.m_craftingStation == null && station.m_name == "$piece_workbench")) {
-						int maxLevel = MaxLevel(station, recipe);
-						if (item.m_quality < maxLevel) {
-							item.m_quality = maxLevel;
-							item.m_durability = item.m_shared.m_maxDurability + item.m_shared.m_durabilityPerLevel * item.m_quality;
-						}
-					}
-				}
-			}
-		}
-		private static int MaxLevel(CraftingStation station, Recipe recipe) {
-			if (settings.noCraftLevels) {
-				return 4;
-			}
-			int stationLevel = 1;
-			if (station != null) {
-				stationLevel = station.GetLevel();
-			}
-			int maxLevel = stationLevel - recipe.m_minStationLevel;
-			if (recipe.m_minStationLevel != 0) {
-				maxLevel++;
-			}
-			if (maxLevel > 4) {
-				maxLevel = 4;
-			}
-			return maxLevel;
-		}
-		[HarmonyPatch(typeof(InventoryGui), nameof(InventoryGui.SetupCrafting))]
-		private class InventoryGui_SetupCrafting {
-			private static void Prefix() {
-				UpgradeInventory(Player.m_localPlayer);
-			}
-		}
-		#endregion
-		#region noBuildStations: Hud.SetUpPieceInfo
-		[HarmonyPatch(typeof(Hud), nameof(Hud.SetupPieceInfo))]
-		private class Hud_SetupPieceInfo {
-			private static void Postfix(Hud __instance, Piece piece) {
-				if (settings.noBuildStations) {
-					__instance.m_requirementItems[piece.m_resources.Length].transform.Find("res_amount").GetComponent<TMP_Text>().color = Color.white;
-				}
-			}
-		}
-		#endregion
-		#region noCraftCost: Player.HaveRequirementItems, InventoryGui.SetupRequirement, InventoryGui.DoCrafting
-		[HarmonyPatch(typeof(Player), nameof(Player.HaveRequirementItems))]
-		private class Player_HaveRequirementItems {
-			private static void Postfix(bool discover, ref bool __result) {
-				if (settings.noCraftCost && !discover) {
-					__result = true;
-				}
-			}
-		}
-
-		[HarmonyPatch(typeof(InventoryGui), nameof(InventoryGui.SetupRequirement))]
-		private class InventoryGui_SetupRequirement {
-			private static void Postfix(Transform elementRoot) {
-				if (settings.noCraftCost) {
-					elementRoot.transform.Find("res_amount").GetComponent<TMP_Text>().color = Color.white;
-				}
-			}
-		}
-
-		[HarmonyPatch(typeof(InventoryGui), nameof(InventoryGui.DoCrafting))]
-		private class InventoryGui_DoCrafting {
-			private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions) {
-				var targetMethod = typeof(Player).GetMethod(nameof(Player.NoCostCheat));
-				var replacementMethod = typeof(InventoryGui_DoCrafting).GetMethod(nameof(InventoryGui_DoCrafting.NoCostCheat));
-
-				foreach (var instruction in instructions) {
-					if (instruction.Calls(targetMethod)) {
-						yield return new CodeInstruction(OpCodes.Call, replacementMethod);
-					}
-					else {
-						yield return instruction;
-					}
-				}
-			}
-			public bool NoCostCheat() {
-				if (settings.noCraftCost) {
-					return true;
-				}
-				return Player.m_localPlayer.m_noPlacementCost;
-			}
-			private static void Postfix(Player player) {
-				UpgradeInventory(player);
-			}
-		}
-		#endregion
-		#region noCraftLevels: Player.RequiredCraftingStation, InventoryGui.UpdateRecipe
-		[HarmonyPatch(typeof(Player), nameof(Player.RequiredCraftingStation))]
-		private class Player_RequiredCraftingStation {
-			private static void Prefix(ref bool checkLevel) {
-				if (settings.noCraftLevels) {
-					checkLevel = false;
-				}
-			}
-		}
-
-		[HarmonyPatch(typeof(InventoryGui), nameof(InventoryGui.UpdateRecipe))]
-		private class InventoryGui_UpdateRecipe {
-			private static void Postfix(InventoryGui __instance) {
-				if (settings.noCraftLevels) {
-					__instance.m_minStationLevelText.color = __instance.m_minStationLevelBasecolor;
-				}
-			}
-		}
-		#endregion
 		#region showDeaths: Player.OnDeath
 		[HarmonyPatch(typeof(Player), nameof(Player.OnDeath))]
 		private class Player_OnDeath {
@@ -1222,12 +1241,13 @@ namespace Speedchoice {
 				if (!settings.isTimerRunning && Game.instance && Input.anyKeyDown) {
 					settings.isTimerRunning = true;
 					speedchoice.StartCoroutine(TimerUpdate());
+					ZRoutedRpc.instance.InvokeRoutedRPC(ZRoutedRpc.Everybody, "StartTimer", "StartTimer");
 				}
 			}
 		}
 		private static IEnumerator TimerUpdate() {
 			while (true) {
-				if (Game.instance) {
+				if (Game.instance && !Game.IsPaused()) {
 					if (timer != null) {
 						timer.text = $"<mspace=0.5em>{TimeSpan.FromSeconds(settings.time)}</mspace>";
 					}
