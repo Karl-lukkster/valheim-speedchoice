@@ -68,7 +68,7 @@ These settings are not included in the UI. One can utilize them by changing the 
 ### Manual
 
 1. Install [BepInExPack Valheim](https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/)
-2. Download the `dll files` from [Speedchoice releases](https://github.com/Karl-lukkster/valheim-speedchoice/releases)
+2. Download the `dll files` from [Speedchoice releases](https://github.com/Karl-lukkster/valheim-speedchoice/releases/latest)
 	- Speedchoice.dll
 	- Newtonsoft.Json.dll
 3. Move the `dll files` to `<Steam Location>/steamapps/common/Valheim/BepInEx/plugins/`
