@@ -65,7 +65,7 @@ namespace Speedchoice {
 		private static Settings settings = new();
 
 		// UI and save data
-		#region Settings UI: FejdStartup.OnServerOptions, FejdStartup.OnServerOptionsDone, ServerOptionsGUI.OnPresetButton
+		#region Settings UI: FejdStartup.OnServerOptions, FejdStartup.OnServerOptionsDone, ServerOptionsGUI.OnPresetButton, FejdStartup.UpdateWorldList
 		// To avoid class-conflicts, we're going with "profiles", "ranges", and "checkboxes" for "presets", "sliders", and "toggles" respectively. 
 		private struct Profile {
 			public List<string> keys;
@@ -439,7 +439,6 @@ namespace Speedchoice {
 
 		[HarmonyPatch(typeof(FejdStartup), nameof(FejdStartup.OnServerOptionsDone))]
 		private class FejdStartup_OnServerOptionsDone {
-			[HarmonyPrefix]
 			private static void Prefix(FejdStartup __instance) {
 				Boolean isUpdated = false;
 				foreach (KeyValuePair<string, Range> entry in ranges) {
@@ -466,7 +465,6 @@ namespace Speedchoice {
 
 		[HarmonyPatch(typeof(ServerOptionsGUI), nameof(ServerOptionsGUI.OnPresetButton))]
 		private class ServerOptionsGUI_OnPresetButton {
-			[HarmonyPrefix]
 			private static void Postfix(KeyButton button) {
 				foreach (KeyValuePair<string, Range> entry in ranges) {
 					GameObject.Find(entry.Key).GetComponentInChildren<Slider>().value = 0;
@@ -484,11 +482,68 @@ namespace Speedchoice {
 				}
 			}
 		}
+
+		[HarmonyPatch(typeof(FejdStartup), nameof(FejdStartup.UpdateWorldList))]
+		private class FejdStartup_UpdateWorldList {
+			private static void updateToolTip(UITooltip toolTip, string add) {
+				toolTip.m_topic = "$menu_serveroptions";
+				if (toolTip.m_text != "") {
+					toolTip.m_text = toolTip.m_text + "\n";
+				}
+				toolTip.m_text = toolTip.m_text + add;
+			}
+			private static void Postfix(FejdStartup __instance) {
+				for (int i = 0; i < __instance.m_worlds.Count; i++) {
+					Load(__instance.m_worlds[i]);
+					List<string> possibleProfiles = profiles.Keys.ToList<string>();
+					for (int j = possibleProfiles.Count - 1; j >= 0; j--) {
+						if (!profiles[possibleProfiles[j]].keys.ToHashSet().SetEquals(__instance.m_worlds[i].m_startingGlobalKeys)) {
+							possibleProfiles.RemoveAt(j);
+						}
+					}
+					bool isCustom = false;
+					UITooltip toolTip = __instance.m_worldListElements[i].GetComponent<UITooltip>();
+					foreach (KeyValuePair<string, Range> entry in ranges) {
+						float value = entry.Value.Get();
+						for (int j = possibleProfiles.Count - 1; j >= 0; j--) {
+							if (profiles[possibleProfiles[j]].ranges[entry.Key] != value) {
+								possibleProfiles.RemoveAt(j);
+							}
+						}
+						if (value != 0) {
+							isCustom = true;
+							updateToolTip(toolTip, entry.Key + ": " + entry.Value.rangeOptions[(int) value].name);
+						}
+					}
+					foreach (KeyValuePair<string, CheckBox> entry in checkBoxes) {
+						for (int j = possibleProfiles.Count - 1; j >= 0; j--) {
+							if (profiles[possibleProfiles[j]].checkBoxes[entry.Key] != entry.Value.Get()) {
+								possibleProfiles.RemoveAt(j);
+							}
+						}
+						if (entry.Value.Get() == true) {
+							isCustom = true;
+							updateToolTip(toolTip, entry.Key);
+						}
+					}
+					TextMeshProUGUI tmpGui = __instance.m_worldListElements[i].transform.Find("modifiers").GetComponent<TextMeshProUGUI>();
+					if (possibleProfiles.Count > 0) {
+						tmpGui.text = possibleProfiles[0];
+					}
+					else if (isCustom) {
+						tmpGui.text = Localization.instance.Localize("$menu_modifier_custom");
+					}
+				}
+			}
+		}
 		#endregion
-		#region save, load, harmlessStructures, noBuildStations, unlockPieces: Game.Start
+		#region save, load: World.RemoveWorld
 		private static string GetSavePath(World world) {
+			return GetSavePath(world.m_name);
+		}
+		private static string GetSavePath(string name) {
 			string baseDir = Path.Combine(Utils.GetSaveDataPath(FileHelpers.FileSource.Local), "worlds");
-			return Path.Combine(baseDir, $"{world.m_fileName}_speedchoice.json");
+			return Path.Combine(baseDir, $"{name}_speedchoice.json");
 		}
 		private static string FromSettings() {
 			return JsonConvert.SerializeObject(settings, Formatting.Indented);
@@ -504,8 +559,14 @@ namespace Speedchoice {
 				ToSettings(File.ReadAllText(GetSavePath(world)));
 			}
 			else {
-				Debug.LogWarning("No save data found, defaulting");
 				settings = new();
+			}
+		}
+
+		[HarmonyPatch(typeof(World), nameof(World.RemoveWorld))]
+		private class World_RemoveWorld {
+			private static void Postfix(string name) {
+				File.Delete(GetSavePath(name));
 			}
 		}
 		#endregion
@@ -1308,7 +1369,6 @@ namespace Speedchoice {
 		private static bool rockyied = false;
 		[HarmonyPatch(typeof(ZoneSystem), nameof(ZoneSystem.PlaceVegetation))]
 		private class ZoneSystem_PlaceVegetation {
-			[HarmonyPrefix]
 			private static void Prefix(ZoneSystem __instance) {
 				if (settings.alwaysRocky && !rockyied) {
 					foreach (ZoneSystem.ZoneVegetation zoneVegetation in __instance.m_vegetation) {
