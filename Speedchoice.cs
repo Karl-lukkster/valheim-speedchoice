@@ -485,12 +485,12 @@ namespace Speedchoice {
 
 		[HarmonyPatch(typeof(FejdStartup), nameof(FejdStartup.UpdateWorldList))]
 		private class FejdStartup_UpdateWorldList {
-			private static void updateToolTip(UITooltip toolTip, string add) {
+			private static void UpdateToolTip(UITooltip toolTip, string add) {
 				toolTip.m_topic = "$menu_serveroptions";
 				if (toolTip.m_text != "") {
-					toolTip.m_text = toolTip.m_text + "\n";
+					toolTip.m_text += "\n";
 				}
-				toolTip.m_text = toolTip.m_text + add;
+				toolTip.m_text += add;
 			}
 			private static void Postfix(FejdStartup __instance) {
 				for (int i = 0; i < __instance.m_worlds.Count; i++) {
@@ -512,7 +512,7 @@ namespace Speedchoice {
 						}
 						if (value != 0) {
 							isCustom = true;
-							updateToolTip(toolTip, entry.Key + ": " + entry.Value.rangeOptions[(int) value].name);
+							UpdateToolTip(toolTip, entry.Key + ": " + entry.Value.rangeOptions[(int) value].name);
 						}
 					}
 					foreach (KeyValuePair<string, CheckBox> entry in checkBoxes) {
@@ -523,7 +523,7 @@ namespace Speedchoice {
 						}
 						if (entry.Value.Get() == true) {
 							isCustom = true;
-							updateToolTip(toolTip, entry.Key);
+							UpdateToolTip(toolTip, entry.Key);
 						}
 					}
 					TextMeshProUGUI tmpGui = __instance.m_worldListElements[i].transform.Find("modifiers").GetComponent<TextMeshProUGUI>();
@@ -600,43 +600,41 @@ namespace Speedchoice {
 		};
 		[HarmonyPatch(typeof(ZoneSystem), nameof(ZoneSystem.Start))]
 		private class ZoneSystem_Start {
-			private static void Postfix() {
+			private static void Postfix(ZoneSystem __instance) {
 				if (ZNet.instance.IsServer()) {
 					Load(ZNet.m_world);
-
-					// harmlessStructures
-					if (settings.harmlessPieces) {
-						foreach (Prefab prefab in harmingPrefabs) {
-							ZNetScene.instance.GetPrefab(prefab.name).transform.Find(prefab.aoe).GetComponent<Aoe>().m_damage = new();
-						}
-					}
-					else {
-						foreach (Prefab prefab in harmingPrefabs) {
-							ZNetScene.instance.GetPrefab(prefab.name).transform.Find(prefab.aoe).GetComponent<Aoe>().m_damage = prefab.damage;
-						}
-					}
-
-					// noBuildStations
+					HarmlessPieces();
 					if (settings.noBuildStations) {
-						ZoneSystem.instance.SetGlobalKey(GlobalKeys.NoWorkbench);
+						__instance.SetGlobalKey(GlobalKeys.NoWorkbench);
 					}
 					else {
-						ZoneSystem.instance.RemoveGlobalKey(GlobalKeys.NoWorkbench);
+						__instance.RemoveGlobalKey(GlobalKeys.NoWorkbench);
 					}
-
-					// unlockPieces
 					if (settings.unlockPieces) {
-						ZoneSystem.instance.SetGlobalKey(GlobalKeys.AllPiecesUnlocked);
+						__instance.SetGlobalKey(GlobalKeys.AllPiecesUnlocked);
 					}
 					else {
-						ZoneSystem.instance.RemoveGlobalKey(GlobalKeys.AllPiecesUnlocked);
+						__instance.RemoveGlobalKey(GlobalKeys.AllPiecesUnlocked);
 					}
 				}
 				ZRoutedRpc.instance.Register<string>("FromServer", FromServer);
 				ZRoutedRpc.instance.Register<string>("StartTimer", StartTimer);
+				ZRoutedRpc.instance.Register<string>("RequestPois", RequestPois);
+				ZRoutedRpc.instance.Register<string>("RevealPois", RevealPois);
+			}
+			private static void HarmlessPieces() {
+				foreach (Prefab prefab in harmingPrefabs) {
+					if (settings.harmlessPieces) {
+						ZNetScene.instance.GetPrefab(prefab.name).transform.Find(prefab.aoe).GetComponent<Aoe>().m_damage = new();
+					}
+					else {
+						ZNetScene.instance.GetPrefab(prefab.name).transform.Find(prefab.aoe).GetComponent<Aoe>().m_damage = prefab.damage;
+					}
+				}
 			}
 			private static void FromServer(long sender, string json) {
 				ToSettings(json);
+				HarmlessPieces();
 				if (settings.isTimerRunning) {
 					speedchoice.StartCoroutine(TimerUpdate());
 				}
@@ -645,6 +643,28 @@ namespace Speedchoice {
 				if (!settings.isTimerRunning) {
 					settings.isTimerRunning = true;
 					speedchoice.StartCoroutine(TimerUpdate());
+				}
+			}
+			private static void RequestPois(long sender, string json) {
+				List<Poi> pois = JsonConvert.DeserializeObject<List<Poi>>(json);
+				List<Poi> poiMapping = new();
+				foreach (Poi poi in pois) {
+					foreach (KeyValuePair<Vector2i, ZoneSystem.LocationInstance> entry in ZoneSystem.instance.m_locationInstances) {
+						if (entry.Value.m_location.m_prefabName == poi.prefabName) {
+							poiMapping.Add(new Poi(poi, entry.Value.m_position.x, entry.Value.m_position.y, entry.Value.m_position.z));
+						}
+					}
+				}
+				ZRoutedRpc.instance.InvokeRoutedRPC(ZRoutedRpc.Everybody, "RevealPois", JsonConvert.SerializeObject(poiMapping));
+			}
+			private static void RevealPois(long y, string json) {
+				if (!ZNet.instance.IsServer()) {
+					List<Poi> pois = JsonConvert.DeserializeObject<List<Poi>>(json);
+					foreach (Poi poi in pois) {
+						Vector3 vector = new(poi.x, poi.y, poi.z);
+						Minimap.instance.DiscoverLocation(vector, poi.pinType, poi.name, false);
+						Minimap.instance.Explore(vector, poi.radius);
+					}
 				}
 			}
 		}
@@ -781,7 +801,6 @@ namespace Speedchoice {
 		[HarmonyPatch(typeof(CharacterDrop), nameof(CharacterDrop.GenerateDropList))]
 		private class CharacterDrop_GenerateDropList {
 			private static void Postfix(CharacterDrop __instance, ref List<KeyValuePair<GameObject, int>> __result) {
-				// trophyOdds
 				if (trophyOdds.TryGetValue(settings.trophyOdds, out float percent) && trophies.TryGetValue(__instance.GetComponent<Character>().m_name, out String trophy)) {
 					bool gotTrophy = false;
 					foreach (KeyValuePair<GameObject, int> droppedItem in __result) {
@@ -794,7 +813,7 @@ namespace Speedchoice {
 						__result.Add(new KeyValuePair<GameObject, int>(trophyDrop.m_prefab, 1));
 					}
 				}
-				// lootlessBosses
+
 				if (settings.lootlessBosses && levels.ContainsKey(__instance.GetComponent<Character>().m_name)) {
 					__result = new List<KeyValuePair<GameObject, int>>();
 				}
@@ -824,23 +843,38 @@ namespace Speedchoice {
 			public Minimap.PinType pinType;
 			public string name;
 			public float radius;
+			public float x;
+			public float y;
+			public float z;
 
 			public Poi(string prefabName, Minimap.PinType pinType, string name, float radius) {
 				this.prefabName = prefabName;
 				this.pinType = pinType;
 				this.name = name;
 				this.radius = radius;
+				x = 0;
+				y = 0;
+				z = 0;
+			}
+			public Poi(Poi poi, float x, float y, float z) {
+				prefabName = poi.prefabName;
+				pinType = poi.pinType;
+				name = poi.name;
+				radius = poi.radius;
+				this.x = x;
+				this.y = y;
+				this.z = z;
 			}
 		}
 		private const float bossRadius = 500f;
 		private const float vendorRadius = 100f;
 		private readonly static Dictionary<string, List<Poi>> reveals = new() {
-			{ "$enemy_eikthyr", new() { new Poi("GDKing", Minimap.PinType.Boss, "Elder", bossRadius), new Poi("Vendor_BlackForest", Minimap.PinType.Icon3, "Haldor", vendorRadius) } },
-			{ "$enemy_gdking", new() { new Poi("Bonemass", Minimap.PinType.Boss, "Bonemass", bossRadius), new Poi("BogWitch_Camp", Minimap.PinType.Icon3, "BogWitch", vendorRadius) } },
-			{ "$enemy_bonemass", new() { new Poi("Dragonqueen", Minimap.PinType.Boss, "Moder", bossRadius) } },
-			{ "$enemy_dragon", new() { new Poi("GoblinKing", Minimap.PinType.Boss, "Yagluth", bossRadius), new Poi("Hildir_camp", Minimap.PinType.Icon3, "Hildir", vendorRadius) } },
-			{ "$enemy_goblinking", new() { new Poi("Mistlands_DvergrBossEntrance1", Minimap.PinType.Boss, "The Queen", bossRadius) } },
-			{ "$enemy_seekerqueen", new() { new Poi("FaderLocation", Minimap.PinType.Boss, "Fader", bossRadius), new Poi("PlaceofMystery1", Minimap.PinType.Icon3, "Mysterious Location", vendorRadius) } }
+			{ "$enemy_eikthyr", new() { new Poi("GDKing", Minimap.PinType.Boss, "$enemy_gdking", bossRadius), new Poi("Vendor_BlackForest", Minimap.PinType.Icon3, "Haldor", vendorRadius) } },
+			{ "$enemy_gdking", new() { new Poi("Bonemass", Minimap.PinType.Boss, "$enemy_bonemass", bossRadius), new Poi("BogWitch_Camp", Minimap.PinType.Icon3, "BogWitch", vendorRadius) } },
+			{ "$enemy_bonemass", new() { new Poi("Dragonqueen", Minimap.PinType.Boss, "$enemy_dragon", bossRadius) } },
+			{ "$enemy_dragon", new() { new Poi("GoblinKing", Minimap.PinType.Boss, "$enemy_goblinking", bossRadius), new Poi("Hildir_camp", Minimap.PinType.Icon3, "Hildir", vendorRadius) } },
+			{ "$enemy_goblinking", new() { new Poi("Mistlands_DvergrBossEntrance1", Minimap.PinType.Boss, "$enemy_seekerqueen", bossRadius) } },
+			{ "$enemy_seekerqueen", new() { new Poi("FaderLocation", Minimap.PinType.Boss, "$enemy_fader_codename", bossRadius), new Poi("PlaceofMystery1", Minimap.PinType.Icon3, "Mysterious Location", vendorRadius) } }
 		};
 
 		private readonly static Dictionary<string, int> levels = new() {
@@ -857,15 +891,21 @@ namespace Speedchoice {
 		private class Character_OnDeath {
 			private static void Postfix(Character __instance) {
 				if (settings.bossReveals && reveals.TryGetValue(__instance.m_name, out List<Poi> pois)) {
-					foreach (Poi poi in pois) {
-						foreach (KeyValuePair<Vector2i, ZoneSystem.LocationInstance> entry in ZoneSystem.instance.m_locationInstances) {
-							if (entry.Value.m_location.m_prefabName == poi.prefabName) {
-								Minimap.instance.DiscoverLocation(entry.Value.m_position, poi.pinType, poi.name, false);
-								Minimap.instance.Explore(entry.Value.m_position, poi.radius);
+					if (ZNet.instance.IsServer()) {
+						foreach (Poi poi in pois) {
+							foreach (KeyValuePair<Vector2i, ZoneSystem.LocationInstance> entry in ZoneSystem.instance.m_locationInstances) {
+								if (entry.Value.m_location.m_prefabName == poi.prefabName) {
+									Minimap.instance.DiscoverLocation(entry.Value.m_position, poi.pinType, poi.name, false);
+									Minimap.instance.Explore(entry.Value.m_position, poi.radius);
+								}
 							}
 						}
 					}
+					else {
+						ZRoutedRpc.instance.InvokeRoutedRPC(ZRoutedRpc.instance.GetServerPeerID(), "RequestPois", JsonConvert.SerializeObject(pois));
+					}
 				}
+
 				if (settings.bossSkills && levels.TryGetValue(__instance.m_name, out int level)) {
 					foreach (KeyValuePair<Skills.SkillType, Skills.Skill> entry in Player.m_localPlayer.GetSkills().m_skillData) {
 						if (entry.Value.m_level < level) {
@@ -905,12 +945,10 @@ namespace Speedchoice {
 			private static void Prefix(Game __instance) {
 				// Player.m_localPlayer can be null while in loading screens
 				if (Player.m_localPlayer != null) {
-					// cheatDeath
 					if (settings.cheatDeath && Player.m_localPlayer.IsDead()) {
 						__instance.GetPlayerProfile().SetLogoutPoint(Player.m_localPlayer.transform.position);
 					}
 
-					// showLogouts
 					Dictionary<string, string> customData = Player.m_localPlayer.m_customData;
 					int logoutCount = 1;
 					if (customData.TryGetValue(logoutsKey, out string savedLogouts)) {
@@ -1244,7 +1282,6 @@ namespace Speedchoice {
 				return tmpGui;
 			}
 			private static void Postfix(Player __instance) {
-				// showDeaths
 				healthpanel = Hud.instance.transform.Find("hudroot/healthpanel");
 				int y = 0;
 				if (settings.showDeaths && deaths == null) {
@@ -1252,17 +1289,16 @@ namespace Speedchoice {
 					UpdateDeaths();
 					y = 1;
 				}
-				// showLogouts
+
 				if (settings.showLogouts && logouts == null) {
 					logouts = AddCounter("logouts", "RoundLog", y);
 					UpdateLogouts();
 				}
-				// showTimer
+
 				if (settings.showTimer && timer == null) {
 					timer = AddTimer();
 				}
 
-				// unlockRecipes
 				if (settings.unlockRecipes && !unlockedRecipes) {
 					unlockedRecipes = true;
 					foreach (GameObject prefab in ObjectDB.instance.m_items) {
@@ -1280,9 +1316,7 @@ namespace Speedchoice {
 					MessageHud.instance.m_unlockMsgCount = 0;
 				}
 
-				// runSpeed
 				__instance.m_runSpeed *= settings.runSpeed;
-				// jumpForce
 				__instance.m_jumpForce *= settings.jumpForce;
 			}
 		}
