@@ -41,11 +41,13 @@ Speedchoice modifiers are saved to a json file named worldName\_speedchoice.json
 
 ### Secret Settings
 
-These settings are not included in the UI. One can utilize them by changing the generated world\_speedchoice.json file. These are not recommended, but might be useful if looking for something specific like "Valheim without the ability to run or jump". 
+These settings are not included in the UI. One can utilize them by changing the generated world\_speedchoice.json file. These are not recommended, but might be useful if looking for something specific like "Valheim without the ability to run or jump".
 
-- <b>`alwaysRocky`</b> - Replaces every Stone with Stonerock, aka Rocky. 
-- <b>`runSpeed`</b> - Multiplies the player's run speed. 
-- <b>`jumpForce`</b> - Multiplies the player's jump force. Note due to how physics works, two times jump force is four times jump height. Specifically, Height = JumpForce^2 / 2g. 
-- <b>`sailForce`</b> - Multiplies the speed at which boats sail, stacks with <b>`Boat Speed<b>`</b>. 
+- <b>`alwaysRocky`</b> - Replaces every Stone with Stonerock, aka Rocky.
+- <b>`runSpeed`</b> - Multiplies the player's run speed.
+- <b>`jumpForce`</b> - Multiplies the player's jump force. Note due to how physics works, two times jump force is four times jump height. Specifically, Height = JumpForce^2 / 2g.
+- <b>`sailForce`</b> - Multiplies the speed at which boats sail, stacks multiplicity with <b>`Boat Speed`</b>.
+- <b>`restOverride`</b> - Overrides <b>`Time to Rest`</b>, causing the player to become rested after the given number of seconds.
+- <b>`trophyOverride`</b> - Overrides <b>`Trophy Odds`</b>, adding an extra reroll for trophy drops equal to the given percent.
 - <b>`unlockPieces`</b> - All build Pieces are immediately unlocked without acquiring the Materials.
 - <b>`unlockRecipes`</b> - All crafting Recipes are immediately unlocked without acquiring the materials or Crafting Station levels.

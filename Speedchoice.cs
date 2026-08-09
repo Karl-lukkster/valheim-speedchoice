@@ -53,6 +53,8 @@ namespace Speedchoice {
 			public float runSpeed = 1;
 			public float jumpForce = 1;
 			public float sailForce = 1;
+			public float restOverride = -1;
+			public float trophyOverride = -1;
 			public bool unlockPieces = false;
 			public bool unlockRecipes = false;
 			// Timer
@@ -86,7 +88,7 @@ namespace Speedchoice {
 				new Dictionary<string, float>{
 					{ "Boat Speed", 2 },
 					{ "Time to Rest", 1 },
-					{ "Trophy Odds", 1 }
+					{ "Trophy Odds", 2 }
 				},
 				new Dictionary<string, bool>{
 					{ "Boss Reveals", true },
@@ -114,7 +116,7 @@ namespace Speedchoice {
 				new Dictionary<string, float>{
 					{ "Boat Speed", 2 },
 					{ "Time to Rest", 1 },
-					{ "Trophy Odds", 2 },
+					{ "Trophy Odds", 4 },
 				},
 				new Dictionary<string, bool>{
 					{ "Boss Reveals", true },
@@ -142,7 +144,7 @@ namespace Speedchoice {
 				new Dictionary<string, float>{
 					{ "Boat Speed", 2 },
 					{ "Time to Rest", 2 },
-					{ "Trophy Odds", 1 },
+					{ "Trophy Odds", 2 },
 				},
 				new Dictionary<string, bool>{
 					{ "Boss Reveals", true },
@@ -208,7 +210,9 @@ namespace Speedchoice {
 				"Adds an extra reroll for trophy drops to all enemies.",
 				new List<RangeOption> {
 					new("Normal", "Vanilla drop rates."),
-					new("Often", "Trophies drop 50%, multiplicably, more often. Thus a Deer trophy would have 75% drop rate, boosted from it's vanilla 50%. A Deathsquito trophy would have 52.5%, from 5%."),
+					new("More", "Trophies drop 25%, multiplicity, more often. Thus a Deer trophy would have 62.5% drop rate, boosted from it's vanilla 50%. A Deathsquito trophy would have 28.75%, from 5%."),
+					new("Often", "Trophies drop 50%, multiplicity, more often. Thus 50% -> 75%, and 5% -> 52.5"),
+					new("Frequently", "Trophies drop 75%, multiplicity, more often. Thus 50% -> 87.5%, and 5% -> 76.25%"),
 					new("Always", "All creatures that can drop trophies, will drop trophies.")
 				}
 			)}
@@ -570,7 +574,7 @@ namespace Speedchoice {
 			}
 		}
 		#endregion
-		#region ZRoutedRpc Registers, harmlessStructures, noBuildStations, unlockPieces: ZoneSystem_Start
+		#region ZRoutedRpc Registers, bossReveals, bossSkills, harmlessStructures, noBuildStations, showTimer, wherePortal, unlockPieces: ZoneSystem_Start
 		private struct Prefab {
 			public string name;
 			public string aoe;
@@ -621,6 +625,8 @@ namespace Speedchoice {
 				ZRoutedRpc.instance.Register<string>("StartTimer", StartTimer);
 				ZRoutedRpc.instance.Register<string>("RequestPois", RequestPois);
 				ZRoutedRpc.instance.Register<string>("RevealPois", RevealPois);
+				ZRoutedRpc.instance.Register<int>("LevelUp", LevelUp);
+				ZRoutedRpc.instance.Register<string>("PlacePortal", PlacePortal);
 			}
 			private static void HarmlessPieces() {
 				foreach (Prefab prefab in harmingPrefabs) {
@@ -657,14 +663,31 @@ namespace Speedchoice {
 				}
 				ZRoutedRpc.instance.InvokeRoutedRPC(ZRoutedRpc.Everybody, "RevealPois", JsonConvert.SerializeObject(poiMapping));
 			}
-			private static void RevealPois(long y, string json) {
-				if (!ZNet.instance.IsServer()) {
-					List<Poi> pois = JsonConvert.DeserializeObject<List<Poi>>(json);
-					foreach (Poi poi in pois) {
-						Vector3 vector = new(poi.x, poi.y, poi.z);
-						Minimap.instance.DiscoverLocation(vector, poi.pinType, poi.name, false);
-						Minimap.instance.Explore(vector, poi.radius);
+			private static void RevealPois(long sender, string json) {
+				List<Poi> pois = JsonConvert.DeserializeObject<List<Poi>>(json);
+				foreach (Poi poi in pois) {
+					Vector3 vector = new(poi.x, poi.y, poi.z);
+					Minimap.instance.DiscoverLocation(vector, poi.pinType, poi.name, false);
+					Minimap.instance.Explore(vector, poi.radius);
+				}
+			}
+			private static void LevelUp(long sender, int level) {
+				if (Player.m_localPlayer != null) {
+					foreach (KeyValuePair<Skills.SkillType, Skills.Skill> entry in Player.m_localPlayer.GetSkills().m_skillData) {
+						if (entry.Value.m_level < level) {
+							entry.Value.m_level = level;
+						}
 					}
+				}
+			}
+			private static void PlacePortal(long sender, string json) {
+				PortalPin portalPin = JsonConvert.DeserializeObject<PortalPin>(json);
+				Vector3 vector = new(portalPin.x, portalPin.y, portalPin.z);
+				if (portalPin.remove) {
+					Minimap.instance.RemovePin(vector, 0.1f);
+				}
+				if (portalPin.add) {
+					Minimap.instance.AddPin(vector, Minimap.PinType.Icon4, portalPin.text, save: true, isChecked: false);
 				}
 			}
 		}
@@ -715,7 +738,7 @@ namespace Speedchoice {
 			}
 		}
 		#endregion
-		#region timeToRest: SE_Cozy.Setup
+		#region timeToRest, restTime: SE_Cozy.Setup
 		private readonly static Dictionary<float, float> restDelays = new() {
 			{ 1, 10 },
 			{ 2, 0 }
@@ -723,7 +746,10 @@ namespace Speedchoice {
 		[HarmonyPatch(typeof(SE_Cozy), nameof(SE_Cozy.Setup), new[] { typeof(Character) })]
 		public static class SE_Cozy_Setup {
 			static void Postfix(SE_Cozy __instance) {
-				if (restDelays.TryGetValue(settings.timeToRest, out float delay)) {
+				if (settings.restOverride >= 0) {
+					__instance.m_delay = settings.restOverride;
+				}
+				else if (restDelays.TryGetValue(settings.timeToRest, out float delay)) {
 					__instance.m_delay = delay;
 				}
 			}
@@ -794,30 +820,39 @@ namespace Speedchoice {
 			{ "$enemy_wraith", "TrophyWraith" }
 		};
 		private readonly static Dictionary<float, float> trophyOdds = new() {
-			{ 0f, -1f },
-			{ 1f, 0.5f },
-			{ 2f, 1f }
+			{ 1f, 0.25f },
+			{ 2f, 0.5f },
+			{ 3f, 0.75f },
+			{ 4f, 1f }
 		};
 		[HarmonyPatch(typeof(CharacterDrop), nameof(CharacterDrop.GenerateDropList))]
 		private class CharacterDrop_GenerateDropList {
 			private static void Postfix(CharacterDrop __instance, ref List<KeyValuePair<GameObject, int>> __result) {
-				if (trophyOdds.TryGetValue(settings.trophyOdds, out float percent) && trophies.TryGetValue(__instance.GetComponent<Character>().m_name, out String trophy)) {
-					bool gotTrophy = false;
-					foreach (KeyValuePair<GameObject, int> droppedItem in __result) {
-						if (trophy == droppedItem.Key.name) {
-							gotTrophy = true;
-						}
-					}
-					if (!gotTrophy && UnityEngine.Random.value <= percent) {
-						CharacterDrop.Drop trophyDrop = __instance.m_drops.Find(drop => drop.m_prefab.name == trophy);
-						__result.Add(new KeyValuePair<GameObject, int>(trophyDrop.m_prefab, 1));
-					}
-				}
-
 				if (settings.lootlessBosses && levels.ContainsKey(__instance.GetComponent<Character>().m_name)) {
 					__result = new List<KeyValuePair<GameObject, int>>();
 				}
+				else if (settings.trophyOverride >= 0) {
+					AddTrophy(__instance, ref __result, settings.trophyOverride / 100);
+				}
+				else if (trophyOdds.TryGetValue(settings.trophyOdds, out float percent)) {
+					AddTrophy(__instance, ref __result, percent);
+				}
 			}
+			private static void AddTrophy(CharacterDrop __instance, ref List<KeyValuePair<GameObject, int>> __result, float odds) {
+				if (trophies.TryGetValue(__instance.GetComponent<Character>().m_name, out string trophy) && !GotTrophy(trophy, __result) && UnityEngine.Random.value <= odds) {
+					CharacterDrop.Drop trophyDrop = __instance.m_drops.Find(drop => drop.m_prefab.name == trophy);
+					__result.Add(new KeyValuePair<GameObject, int>(trophyDrop.m_prefab, 1));
+				}
+			}
+			private static bool GotTrophy(string trophy, List<KeyValuePair<GameObject, int>> __result) {
+				foreach (KeyValuePair<GameObject, int> droppedItem in __result) {
+					if (trophy == droppedItem.Key.name) {
+						return true;
+					}
+				}
+				return false;
+			}
+
 		}
 		[HarmonyPatch(typeof(Trader), nameof(Trader.GetAvailableItems))]
 		private class Trader_GetAvailableItems {
@@ -891,27 +926,11 @@ namespace Speedchoice {
 		private class Character_OnDeath {
 			private static void Postfix(Character __instance) {
 				if (settings.bossReveals && reveals.TryGetValue(__instance.m_name, out List<Poi> pois)) {
-					if (ZNet.instance.IsServer()) {
-						foreach (Poi poi in pois) {
-							foreach (KeyValuePair<Vector2i, ZoneSystem.LocationInstance> entry in ZoneSystem.instance.m_locationInstances) {
-								if (entry.Value.m_location.m_prefabName == poi.prefabName) {
-									Minimap.instance.DiscoverLocation(entry.Value.m_position, poi.pinType, poi.name, false);
-									Minimap.instance.Explore(entry.Value.m_position, poi.radius);
-								}
-							}
-						}
-					}
-					else {
-						ZRoutedRpc.instance.InvokeRoutedRPC(ZRoutedRpc.instance.GetServerPeerID(), "RequestPois", JsonConvert.SerializeObject(pois));
-					}
+					ZRoutedRpc.instance.InvokeRoutedRPC(ZRoutedRpc.instance.GetServerPeerID(), "RequestPois", JsonConvert.SerializeObject(pois));
 				}
 
 				if (settings.bossSkills && levels.TryGetValue(__instance.m_name, out int level)) {
-					foreach (KeyValuePair<Skills.SkillType, Skills.Skill> entry in Player.m_localPlayer.GetSkills().m_skillData) {
-						if (entry.Value.m_level < level) {
-							entry.Value.m_level = level;
-						}
-					}
+					ZRoutedRpc.instance.InvokeRoutedRPC(ZRoutedRpc.Everybody, "LevelUp", level);
 				}
 			}
 		}
@@ -974,20 +993,31 @@ namespace Speedchoice {
 			"$item_barberkit", "$item_barleyflour", "$item_barrelrings", "$item_dragontear", "$item_scythehandle", "$item_yagluththing"
 		};
 		private readonly static List<String> retains = new() {
-			"$item_amber", "$item_amberpearl", "$item_asksvin_meat", "$item_barley", "$item_barleywinebase", "$item_bjorn_meat", "$item_blackcore", "$item_blackmetalscrap",
-			"$item_catapult_ammo", "$item_bonefragments", "$item_bonemawmeat", "$item_breaddough", "$item_bronzescrap", "$item_bug_meat", "$item_catapult_training_ammo",
-			"$item_charredbone", "$item_chicken_meat", "$item_coal", "$item_coins", "$item_copperore", "$item_copperscrap", "$item_deer_meat", "$item_eitr", "$item_finewood",
-			"$item_fireworkrocket_blue", "$item_fireworkrocket_cyan", "$item_fireworkrocket_green", "$item_fireworkrocket_purple", "$item_fireworkrocket_red",
-			"$item_fireworkrocket_white", "$item_fireworkrocket_yellow", "$item_fishandbreaduncooked", "$item_fish_raw", "$item_fish_raw", "$item_flametalore_old",
-			"$item_flametalore", "$item_flax", "$item_hare_meat", "$item_honeyglazedchickenuncooked", "$item_ironore", "$item_ironscrap", "$item_loxmeat", "$item_loxpie_uncooked",
-			"$item_magicallystuffedmushroomuncooked", "$item_meadbasebugrepellent", "$item_meadbasebzerker", "$item_meadbaseeitr_lingering", "$item_meadbaseeitr",
-			"$item_meadbasefrostresist", "$item_meadbasehasty", "$item_meadbasehealth_lingering", "$item_meadbasehealth_major", "$item_meadbasehealth_medium", "$item_meadbasehealth",
-			"$item_meadbaselightfoot", "$item_meadbasepoisonresist", "$item_meadbasestamina_lingering", "$item_meadbasestamina_medium", "$item_meadbasestamina",
-			"$item_meadbasestrength", "$item_meadbaseswimmer", "$item_meadbasetamer", "$item_meadbasetasty", "$item_meatplatteruncooked", "$item_mistharesupremeuncooked",
-			"$item_necktail", "$item_piquantpie_uncooked", "$item_boar_meat", "$item_resin", "$item_roastedcrustpie_uncooked", "$item_roundlog", "$item_ruby", "$item_sap",
-			"$item_serpentmeat", "$item_silvernecklace", "$item_silverore", "$item_softtissue", "$item_surtlingcore", "$item_thunderstone", "$item_tinore", "$item_trophy_bonemass",
-			"$item_trophy_deer", "$item_trophy_dragonqueen", "$item_trophy_eikthyr", "$item_trophy_fader", "$item_trophy_goblinking", "$item_trophy_seeker_brute",
-			"$item_trophy_seekerqueen", "$item_trophy_elder", "$item_vikingcupcake_uncooked", "$item_volture_meat", "$item_witheredbone", "$item_wolf_meat", "$item_wood"
+			// Ammunition
+			"$item_catapult_ammo", "$item_bonefragments", "$item_catapult_training_ammo", "$item_charredbone", "$item_eitr",
+			// Cooking
+			"$item_asksvin_meat", "$item_barley", "$item_bjorn_meat", "$item_bonemawmeat", "$item_breaddough", "$item_bug_meat", "$item_chicken_meat", "$item_deer_meat",
+			"$item_fishandbreaduncooked", "$item_fish_raw", "$item_fish_raw", "$item_hare_meat", "$item_honeyglazedchickenuncooked", "$item_loxmeat", "$item_loxpie_uncooked",
+			"$item_magicallystuffedmushroomuncooked", "$item_meatplatteruncooked", "$item_mistharesupremeuncooked", "$item_necktail", "$item_piquantpie_uncooked", "$item_boar_meat",
+			"$item_roastedcrustpie_uncooked", "$item_serpentmeat", "$item_vikingcupcake_uncooked", "$item_volture_meat", "$item_wolf_meat", 
+			// Firework
+			"$item_blackcore", "$item_fireworkrocket_blue", "$item_fireworkrocket_cyan", "$item_fireworkrocket_green", "$item_fireworkrocket_purple", "$item_fireworkrocket_red",
+			"$item_fireworkrocket_white", "$item_fireworkrocket_yellow", "$item_resin", "$item_surtlingcore", "$item_thunderstone", 
+			// Forsaken
+			"$item_trophy_bonemass", "$item_trophy_deer", "$item_trophy_dragonqueen", "$item_trophy_eikthyr", "$item_trophy_fader", "$item_trophy_goblinking",
+			"$item_trophy_seeker_brute", "$item_trophy_seekerqueen", "$item_trophy_elder", "$item_witheredbone", 
+			// Mead Base
+			"$item_barleywinebase", "$item_meadbasebugrepellent", "$item_meadbasebzerker", "$item_meadbaseeitr_lingering", "$item_meadbaseeitr", "$item_meadbasefrostresist",
+			"$item_meadbasehasty", "$item_meadbasehealth_lingering", "$item_meadbasehealth_major", "$item_meadbasehealth_medium", "$item_meadbasehealth", "$item_meadbaselightfoot",
+			"$item_meadbasepoisonresist", "$item_meadbasestamina_lingering", "$item_meadbasestamina_medium", "$item_meadbasestamina", "$item_meadbasestrength", "$item_meadbaseswimmer",
+			"$item_meadbasetamer", "$item_meadbasetasty",
+			// Money
+			"$item_amber", "$item_amberpearl", "$item_coins", "$item_ruby", "$item_silvernecklace", 
+			// Processing
+			"$item_blackmetalscrap", "$item_bronzescrap", "$item_coal", "$item_copperore", "$item_copperscrap", "$item_finewood", "$item_flametalore_old", "$item_flametalore",
+			"$item_flax", "$item_ironore", "$item_ironscrap", "$item_roundlog", "$item_sap", "$item_silverore", "$item_softtissue", "$item_tinore", "$item_wood", 
+			// Taming
+			"$item_beechseeds", "$item_birchseeds", "$item_carrotseeds", "$item_dandelion", "$item_onionseeds", "$item_turnip", "$item_turnipseeds"
 		};
 		private static void RemoveItem(Inventory inventory, ItemDrop.ItemData itemData) {
 			if (settings.dropMaterials && (drops.Contains(itemData.m_shared.m_itemType) || exhausts.Contains(itemData.m_shared.m_name)) && !retains.Contains(itemData.m_shared.m_name)) {
@@ -1342,7 +1372,7 @@ namespace Speedchoice {
 		}
 		private static IEnumerator TimerUpdate() {
 			while (true) {
-				if (Game.instance && !Game.IsPaused()) {
+				if (!Game.IsPaused()) {
 					if (timer != null) {
 						timer.text = $"<mspace=0.5em>{TimeSpan.FromSeconds(settings.time)}</mspace>";
 					}
@@ -1354,11 +1384,32 @@ namespace Speedchoice {
 		#endregion
 		#region structureLoot, wherePortal: Player.PlacePiece, TeleportWorld.SetText, Piece.DropResources
 		private static bool overridePieceDrops = false;
+		private struct PortalPin {
+			public float x;
+			public float y;
+			public float z;
+			public string text;
+			public bool add;
+			public bool remove;
+
+			public PortalPin(Vector3 vector, string text, bool add, bool remove) {
+				x = vector.x;
+				y = vector.y;
+				z = vector.z;
+				this.text = text;
+				this.add = add;
+				this.remove = remove;
+			}
+		}
+		private static string PortalPinJson(Vector3 vector, string text, bool add, bool remove) {
+			return JsonConvert.SerializeObject(new PortalPin(vector, text, add, remove));
+		}
+
 		[HarmonyPatch(typeof(Player), nameof(Player.PlacePiece), new[] { typeof(Piece), typeof(Vector3), typeof(Quaternion), typeof(bool) })]
 		private class Player_PlacePiece {
 			private static void Postfix(Piece piece, Vector3 pos) {
 				if (settings.wherePortal && piece != null && (piece.name == "portal_wood" || piece.name == "portal_stone")) {
-					Minimap.instance.AddPin(pos, Minimap.PinType.Icon4, "", save: true, isChecked: false);
+					ZRoutedRpc.instance.InvokeRoutedRPC(ZRoutedRpc.Everybody, "PlacePortal", PortalPinJson(pos, "", true, false));
 				}
 			}
 		}
@@ -1366,8 +1417,7 @@ namespace Speedchoice {
 		private class TeleportWorld_SetText {
 			private static void Postfix(TeleportWorld __instance, string text) {
 				if (settings.wherePortal) {
-					Minimap.instance.RemovePin(__instance.transform.position, 0.1f);
-					Minimap.instance.AddPin(__instance.transform.position, Minimap.PinType.Icon4, text, save: true, isChecked: false);
+					ZRoutedRpc.instance.InvokeRoutedRPC(ZRoutedRpc.Everybody, "PlacePortal", PortalPinJson(__instance.transform.position, text, true, true));
 				}
 			}
 		}
@@ -1381,7 +1431,7 @@ namespace Speedchoice {
 			private static void Postfix(Piece __instance) {
 				overridePieceDrops = false;
 				if (settings.wherePortal && __instance.GetComponent<TeleportWorld>() != null) {
-					Minimap.instance.RemovePin(__instance.transform.position, 0.1f);
+					ZRoutedRpc.instance.InvokeRoutedRPC(ZRoutedRpc.Everybody, "PlacePortal", PortalPinJson(__instance.transform.position, "", false, true));
 				}
 			}
 		}
