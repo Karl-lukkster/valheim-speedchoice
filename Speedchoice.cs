@@ -16,7 +16,7 @@ namespace Speedchoice {
 	public class Speedchoice : BaseUnityPlugin {
 		public const string PluginGUID = "com.lukkster.Speedchoice";
 		public const string PluginName = "Speedchoice";
-		public const string PluginVersion = "0.0.1";
+		public const string PluginVersion = "1.0.0";
 		private readonly Harmony harmony = new(PluginGUID);
 		private static Speedchoice speedchoice;
 		private void Start() {
@@ -500,8 +500,13 @@ namespace Speedchoice {
 				for (int i = 0; i < __instance.m_worlds.Count; i++) {
 					Load(__instance.m_worlds[i]);
 					List<string> possibleProfiles = profiles.Keys.ToList<string>();
+					HashSet<string> copyKeys = new(__instance.m_worlds[i].m_startingGlobalKeys);
+					// No workbenches isn't a default setting, but can be modified via persets.
+					copyKeys.Remove("noworkbench");
+					// Valheim often adds "preset ASD" to the world modifiers
+					copyKeys.RemoveWhere(x => x.StartsWith("preset "));
 					for (int j = possibleProfiles.Count - 1; j >= 0; j--) {
-						if (!profiles[possibleProfiles[j]].keys.ToHashSet().SetEquals(__instance.m_worlds[i].m_startingGlobalKeys)) {
+						if (!profiles[possibleProfiles[j]].keys.ToHashSet().SetEquals(copyKeys)) {
 							possibleProfiles.RemoveAt(j);
 						}
 					}
@@ -623,6 +628,8 @@ namespace Speedchoice {
 				}
 				ZRoutedRpc.instance.Register<string>("FromServer", FromServer);
 				ZRoutedRpc.instance.Register<string>("StartTimer", StartTimer);
+				ZRoutedRpc.instance.Register<string>("GetTimer", GetTimer);
+				ZRoutedRpc.instance.Register<int>("SetTimer", SetTimer);
 				ZRoutedRpc.instance.Register<string>("RequestPois", RequestPois);
 				ZRoutedRpc.instance.Register<string>("RevealPois", RevealPois);
 				ZRoutedRpc.instance.Register<int>("LevelUp", LevelUp);
@@ -650,6 +657,12 @@ namespace Speedchoice {
 					settings.isTimerRunning = true;
 					speedchoice.StartCoroutine(TimerUpdate());
 				}
+			}
+			private static void GetTimer(long sender, string json) {
+				ZRoutedRpc.instance.InvokeRoutedRPC(sender, "SetTimer", settings.time);
+			}
+			private static void SetTimer(long sender, int time) {
+				settings.time = time;
 			}
 			private static void RequestPois(long sender, string json) {
 				List<Poi> pois = JsonConvert.DeserializeObject<List<Poi>>(json);
@@ -704,7 +717,7 @@ namespace Speedchoice {
 		[HarmonyPatch(typeof(ZRoutedRpc), nameof(ZRoutedRpc.RemovePeer))]
 		private class ZRoutedRpc_RemovePeer {
 			private static void Postfix(ZRoutedRpc __instance) {
-				if (__instance.m_server && __instance.m_peers.Count < 1) {
+				if (__instance.m_server && ZNet.instance.IsDedicated() && __instance.m_peers.Count < 1) {
 					speedchoice.StopAllCoroutines();
 					settings.isTimerRunning = false;
 				}
@@ -979,6 +992,7 @@ namespace Speedchoice {
 				speedchoice.StopAllCoroutines();
 				settings.isTimerRunning = false;
 				rockyied = false;
+				isSynced = false;
 				if (ZNet.instance.IsServer()) {
 					Save(ZNet.m_world);
 				}
@@ -1360,13 +1374,20 @@ namespace Speedchoice {
 		}
 		#endregion
 		#region showTimer: Player.Update
+		private static bool isSynced = false;
 		[HarmonyPatch(typeof(Player), nameof(Player.Update))]
 		private class Player_Update {
-			private static void Postfix() {
-				if (!settings.isTimerRunning && Game.instance && Input.anyKeyDown) {
-					settings.isTimerRunning = true;
-					speedchoice.StartCoroutine(TimerUpdate());
-					ZRoutedRpc.instance.InvokeRoutedRPC(ZRoutedRpc.Everybody, "StartTimer", "StartTimer");
+			private static void Postfix(Player __instance) {
+				if (Game.instance && __instance.TakeInput() && Input.anyKeyDown) {
+					if (!ZRoutedRpc.instance.m_server && !isSynced) {
+						isSynced = true;
+						ZRoutedRpc.instance.InvokeRoutedRPC(ZRoutedRpc.instance.GetServerPeerID(), "GetTimer", "GetTimer");
+					}
+					if (!settings.isTimerRunning) {
+						settings.isTimerRunning = true;
+						speedchoice.StartCoroutine(TimerUpdate());
+						ZRoutedRpc.instance.InvokeRoutedRPC(ZRoutedRpc.Everybody, "StartTimer", "StartTimer");
+					}
 				}
 			}
 		}
