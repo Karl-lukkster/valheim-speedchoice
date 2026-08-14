@@ -1,4 +1,4 @@
-﻿# Valheim Speedchoice
+# Valheim Speedchoice
 
 This is a BepInEx mod for Valheim for that adds a number of new World Modifiers that speed up gameplay. Inspired by [Crystal Speedchoice](https://github.com/dabomstew/pokecrystal-speedchoice) and [TrophyHuntMod](https://github.com/smariotti/Valheim/tree/master/TrophyHuntMod).
 
