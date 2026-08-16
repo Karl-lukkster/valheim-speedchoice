@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 1.0.2
+
+Fix issues with <b>`Instant Upgrades`</b>.
+
+### Toggles
+
+- <b>`Instant Upgrades`</b> - Resolves issues where Pickaxes could only upgrade to level 3. 
+
 ## Version 1.0.1
 
 Fix issues with <b>`Instant Upgrades`</b>.

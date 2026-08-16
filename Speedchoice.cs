@@ -16,7 +16,7 @@ namespace Speedchoice {
 	public class Speedchoice : BaseUnityPlugin {
 		public const string PluginGUID = "com.lukkster.Speedchoice";
 		public const string PluginName = "Speedchoice";
-		public const string PluginVersion = "1.0.1";
+		public const string PluginVersion = "1.0.2";
 		private readonly Harmony harmony = new(PluginGUID);
 		private static Speedchoice speedchoice;
 		private void Start() {
@@ -1136,10 +1136,6 @@ namespace Speedchoice {
 		}
 		private static int MaxLevel(CraftingStation station, Recipe recipe) {
 			int maxPossible = recipe.m_item.m_itemData.m_shared.m_maxQuality;
-			// Vanilla Valheim incorrectly has level 4 for Pickaxes, without a recipe to actually upgrade 'em. 
-			if (Skills.SkillType.Pickaxes == recipe.m_item.m_itemData.m_shared.m_skillType) {
-				maxPossible = 3;
-			}
 			if (settings.noCraftLevels) {
 				return maxPossible;
 			}

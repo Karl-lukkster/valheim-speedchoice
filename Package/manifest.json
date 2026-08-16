@@ -1,7 +1,7 @@
 {
     "name": "Speedchoice",
     "description": "BepInEx mod that adds a number of new World Modifiers, allowing accelerated gameplay.",
-    "version_number": "1.0.1",
+    "version_number": "1.0.2",
     "website_url": "https://github.com/Karl-lukkster/valheim-speedchoice",
     "dependencies": [
         "denikson-BepInExPack_Valheim-5.4.2333"
