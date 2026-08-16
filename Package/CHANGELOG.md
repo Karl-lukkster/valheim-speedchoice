@@ -1,6 +1,15 @@
 # Changelog
 
+## Version 1.0.1
+
+Fix issues with <b>`Instant Upgrades`</b>.
+
+### Toggles
+
+- <b>`Instant Upgrades`</b> - Resolves issues where items that could upgrade, but had a max level of two or three, were upgraded to level 4. 
+
 ## Version 1.0.0
+
 Initial Release!
 
 ### Presets
