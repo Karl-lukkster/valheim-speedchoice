@@ -14,7 +14,7 @@ Speedchoice modifiers are saved to a json file named worldName\_speedchoice.json
 
 ### Sliders
 
-- <b>`Boat Speed`</b> - Changes the speed at which ships sail.
+- <b>`Boat Speed`</b> - Increases the speed at which ships sail.
 - <b>`Time to Rest`</b> - Adjusts how long it takes to become rested.
 - <b>`Trophy Odds`</b> - Adds an extra reroll for trophy drops to all enemies.
 
@@ -30,14 +30,14 @@ Speedchoice modifiers are saved to a json file named worldName\_speedchoice.json
 - <b>`Fast Fermenters`</b> - Fermenters brew quickly.
 - <b>`Increased Exp`</b> - Increases Skill experience gains by 500%.
 - <b>`Instant Upgrades`</b> - Instantly upgrades any upgradeable tool or armor.
-- <b>`Structure Loot`</b> - Naturally occurring structures, such as houses, will drop into materials when deconstructed with a hammer in "No Build Cost".
+- <b>`Structure Loot`</b> - Naturally occurring structures will drop materials when deconstructed with a hammer in "No Build Cost".
 - <b>`Where's my Portal?`</b> - Adds a portal pin to the map upon placing a portal.
 - <b>`No Build Stations`</b> - Player built pieces can be constructed without the required nearby crafting stations. For instance a Portal can be built without a nearby Workbench.
 - <b>`No Craft Cost`</b> - Items can be crafted without consuming or requiring the materials to do so.
 - <b>`No Craft Levels`</b> - Items can be crafted without the prerequisite Crafting Station Level to do so.
-- <b>`Show Deaths`</b> - Adds an UI element showing the number of Deaths.
-- <b>`Show Logouts`</b> - Adds an UI element showing the number of Logouts.
-- <b>`Show Timer`</b> - Adds an UI element showing how long there has been activity in the world. Starts on first input, and pauses when the game pauses.
+- <b>`Show Deaths`</b> - Adds a UI element showing the number of Deaths.
+- <b>`Show Logouts`</b> - Adds a UI element showing the number of Logouts.
+- <b>`Show Timer`</b> - Adds a UI element showing how long there has been activity in the world. Starts on first input, and pauses when the game pauses.
 
 ### Secret Settings
 
@@ -50,7 +50,7 @@ These settings are not included in the UI. One can utilize them by changing the 
 - <b>`restOverride`</b> - Overrides <b>`Time to Rest`</b>, causing the player to become rested after the given number of seconds.
 - <b>`trophyOverride`</b> - Overrides <b>`Trophy Odds`</b>, adding an extra reroll for trophy drops equal to the given percent.
 - <b>`unlockPieces`</b> - All build Pieces are immediately unlocked without acquiring the Materials.
-- <b>`unlockRecipes`</b> - All crafting Recipes are immediately unlocked without acquiring the materials or Crafting Station levels.
+- <b>`unlockRecipes`</b> - All crafting Recipes are immediately unlocked without acquiring the Materials or Crafting Station levels.
 
 ## Installation
 
@@ -59,8 +59,7 @@ These settings are not included in the UI. One can utilize them by changing the 
 1. Download the Thunderstore Mod Manager of your choice. In Alphebetical order:
 	- [Gale](https://thunderstore.io/c/valheim/p/Kesomannen/GaleModManager/)
 	- [r2modman](https://thunderstore.io/c/valheim/p/ebkr/r2modman/)
-	- [Thunderstore Mod Manager
-](https://www.overwolf.com/app/thunderstore-thunderstore_mod_manager)
+	- [Thunderstore Mod Manager](https://www.overwolf.com/app/thunderstore-thunderstore_mod_manager)
 2. Set up a `Profile` for `Valheim`. 
 3. In the left panel, under `Mods` select `Online`. 
 4. In the search bar, search for `Speedchoice`. 

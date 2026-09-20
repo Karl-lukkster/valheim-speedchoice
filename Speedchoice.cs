@@ -16,7 +16,7 @@ namespace Speedchoice {
 	public class Speedchoice : BaseUnityPlugin {
 		public const string PluginGUID = "com.lukkster.Speedchoice";
 		public const string PluginName = "Speedchoice";
-		public const string PluginVersion = "1.0.2";
+		public const string PluginVersion = "1.1.0";
 		private readonly Harmony harmony = new(PluginGUID);
 		private static Speedchoice speedchoice;
 		private void Start() {
@@ -33,7 +33,7 @@ namespace Speedchoice {
 			public bool bossReveals = false;
 			public bool bossSkills = false;
 			public bool cheatDeath = false;
-			public bool dropMaterials = false; // TODO - Doesn't work on drag-n-drop.
+			public bool dropMaterials = false;
 			public bool fastCrops = false;
 			public bool fastFermenters = false;
 			public bool harmlessPieces = false;
@@ -69,25 +69,18 @@ namespace Speedchoice {
 		// UI and save data
 		#region Settings UI: FejdStartup.OnServerOptions, FejdStartup.OnServerOptionsDone, ServerOptionsGUI.OnPresetButton, FejdStartup.UpdateWorldList
 		// To avoid class-conflicts, we're going with "profiles", "ranges", and "checkboxes" for "presets", "sliders", and "toggles" respectively. 
-		private struct Profile {
-			public List<string> keys;
-			public string toolTip;
-			public Dictionary<string, float> ranges;
-			public Dictionary<string, bool> checkBoxes;
-
-			public Profile(List<string> keys, string toolTip, Dictionary<string, float> ranges, Dictionary<string, bool> checkBoxes) {
-				this.keys = keys;
-				this.toolTip = toolTip;
-				this.ranges = ranges;
-				this.checkBoxes = checkBoxes;
-			}
+		private struct Profile(List<string> keys, string toolTip, Dictionary<string, float> ranges, Dictionary<string, bool> checkBoxes) {
+			public List<string> keys = keys;
+			public string toolTip = toolTip;
+			public Dictionary<string, float> ranges = ranges;
+			public Dictionary<string, bool> checkBoxes = checkBoxes;
 		}
 		private readonly static Dictionary<string, Profile> profiles = new() {{
-				"Speedchoice", new Profile(new List<string>{"eventrate 0", "teleportall", "nobuildcost"},
+				"Speedchoice", new Profile(["eventrate 0", "teleportall", "nobuildcost"],
 				"Recommended Speedchoice settings. Faster gameplay, no grinding required, and Boss Reveals make the whole game completable in one sitting.",
 				new Dictionary<string, float>{
 					{ "Boat Speed", 2 },
-					{ "Time to Rest", 1 },
+					{ "Time to Rest", 2 },
 					{ "Trophy Odds", 2 }
 				},
 				new Dictionary<string, bool>{
@@ -97,7 +90,7 @@ namespace Speedchoice {
 					{ "Drop Materials", true },
 					{ "Fast Crops", true },
 					{ "Fast Fermenters", true },
-					{ "Harmless Pieces", true },
+					{ "Harmless Pieces", false },
 					{ "Increased Exp", false },
 					{ "Instant Upgrades", true },
 					{ "Lootless Bosses", false },
@@ -111,7 +104,7 @@ namespace Speedchoice {
 					{ "Where's my Portal?", true }
 				}
 			)}, {
-				"Trailblazer", new Profile(new List<string>{"deathkeepequip", "skillreductionrate 15", "resourcerate 200", "eventrate 0", "teleportall", "nobuildcost"},
+				"Trailblazer", new Profile(["deathkeepequip", "skillreductionrate 15", "resourcerate 200", "eventrate 0", "teleportall", "nobuildcost"],
 				"OatHorse's Trailblazer settings, without the trophy hunt aspect.",
 				new Dictionary<string, float>{
 					{ "Boat Speed", 2 },
@@ -139,15 +132,15 @@ namespace Speedchoice {
 					{ "Where's my Portal?", true }
 				}
 			)}, {
-				"Blazing", new Profile(new List<string>{"eventrate 0", "teleportall", "nobuildcost"},
-				"Accelerated version of a Reverse Boss playthrough. Defeat the bosses in order, and get rewarded in Skill Levels. However, the bosses have no drops. Thus no Forsaken Powers, or Moder's Tears for late game crafting.",
+				"Randomizer", new Profile(["eventrate 0", "teleportall", "nobuildcost"],
+				"Recommended settings for playing Speedchoice Randomizer.",
 				new Dictionary<string, float>{
 					{ "Boat Speed", 2 },
-					{ "Time to Rest", 2 },
+					{ "Time to Rest", 1 },
 					{ "Trophy Odds", 2 },
 				},
 				new Dictionary<string, bool>{
-					{ "Boss Reveals", true },
+					{ "Boss Reveals", false },
 					{ "Boss Skills", true },
 					{ "Cheat Death", true },
 					{ "Drop Materials", true },
@@ -156,7 +149,7 @@ namespace Speedchoice {
 					{ "Harmless Pieces", true },
 					{ "Increased Exp", false },
 					{ "Instant Upgrades", true },
-					{ "Lootless Bosses", true },
+					{ "Lootless Bosses", false },
 					{ "No Build Stations", true },
 					{ "No Craft Cost", true },
 					{ "No Craft Levels", false },
@@ -168,65 +161,49 @@ namespace Speedchoice {
 				}
 			)}
 		};
-		private struct RangeOption {
-			public string name;
-			public string toolTip;
-			public RangeOption(string name, string toolTip) {
-				this.name = name;
-				this.toolTip = toolTip;
-			}
+		private struct RangeOption(string name, string toolTip) {
+			public string name = name;
+			public string toolTip = toolTip;
 		}
-		private struct Range {
-			public Func<float> Get;
-			public Action<float> Set;
-			public string toolTip;
-			public List<RangeOption> rangeOptions;
-			public Range(Func<float> getter, Action<float> setter, string toolTip, List<RangeOption> rangeOptions) {
-				Get = getter;
-				Set = setter;
-				this.toolTip = toolTip;
-				this.rangeOptions = rangeOptions;
-			}
+		private struct Range(Func<float> getter, Action<float> setter, string toolTip, List<RangeOption> rangeOptions) {
+			public Func<float> Get = getter;
+			public Action<float> Set = setter;
+			public string toolTip = toolTip;
+			public List<RangeOption> rangeOptions = rangeOptions;
 		}
 		private readonly static SortedDictionary<string, Range> ranges = new() {{
 				"Boat Speed", new Range(() => settings.boatSpeed, val => settings.boatSpeed = val,
 				"Changes the speed at which ships sail.",
-				new List<RangeOption> {
+				[
 					new("Normal", "Boats travel normally."),
 					new("Fast", "Boats are 2.5 times faster, 2 times faster while paddling."),
 					new("Dangerous", "Boats are 10 times faster, 8 times faster while paddling."),
 					new("Capsize", "Boats travel ... faster.")
-				}
+				]
 			)}, {
 				"Time to Rest", new Range(() => settings.timeToRest, val => settings.timeToRest = val,
 				"Adjusts how long it takes to become rested.",
-				new List<RangeOption> {
+				[
 					new("Normal", "The default of 20 seconds."),
 					new("Fast", "Spend 10 seconds to become rested."),
 					new("Instant", "Resting happens instantly.")
-				}
+				]
 			)}, {
 				"Trophy Odds", new Range(() => settings.trophyOdds, val => settings.trophyOdds = val,
 				"Adds an extra reroll for trophy drops to all enemies.",
-				new List<RangeOption> {
+				[
 					new("Normal", "Vanilla drop rates."),
 					new("More", "Trophies drop 25%, multiplicity, more often. Thus a Deer trophy would have 62.5% drop rate, boosted from it's vanilla 50%. A Deathsquito trophy would have 28.75%, from 5%."),
 					new("Often", "Trophies drop 50%, multiplicity, more often. Thus 50% -> 75%, and 5% -> 52.5"),
 					new("Frequently", "Trophies drop 75%, multiplicity, more often. Thus 50% -> 87.5%, and 5% -> 76.25%"),
 					new("Always", "All creatures that can drop trophies, will drop trophies.")
-				}
+				]
 			)}
 		};
-		private struct CheckBox {
-			public Func<bool> Get;
-			public Action<bool> Set;
-			public string toolTip;
-
-			public CheckBox(Func<bool> getter, Action<bool> setter, string toolTip) {
-				Get = getter;
-				Set = setter;
-				this.toolTip = toolTip;
-			}
+		private struct CheckBox(Func<bool> getter, Action<bool> setter, string toolTip) {
+			public Func<bool> Get = getter;
+			public Action<bool> Set = setter;
+			public string toolTip = toolTip;
 		}
 		private readonly static Dictionary<string, CheckBox> checkBoxes = new() {{
 				"Boss Reveals", new CheckBox(() => settings.bossReveals, val => settings.bossReveals = val,
@@ -310,7 +287,7 @@ namespace Speedchoice {
 						AddProfile(row, col, entry);
 					}
 					float expandPanel = row * profileSep;
-					string[] belowPresets = { "Presets/Default", "Modifiers" };
+					string[] belowPresets = ["Presets/Default", "Modifiers"];
 					foreach (string objectId in belowPresets) {
 						MoveDown(objectId, expandPanel);
 					}
@@ -320,7 +297,7 @@ namespace Speedchoice {
 						row++;
 						AddRange(row, entry);
 					}
-					string[] belowSliders = { "Modifiers/NoBuildCost", "Modifiers/PlayerBasedEvents", "Modifiers/Fire", "Modifiers/Passivemobs", "Modifiers/Nomap" };
+					string[] belowSliders = ["Modifiers/NoBuildCost", "Modifiers/PlayerBasedEvents", "Modifiers/Fire", "Modifiers/Passivemobs", "Modifiers/Nomap"];
 					foreach (string objectId in belowSliders) {
 						MoveDown(objectId, row * rangeSep);
 					}
@@ -391,7 +368,7 @@ namespace Speedchoice {
 				slider.value = 0;
 				KeySlider keySlider = sliderTransform?.GetComponent<KeySlider>();
 				keySlider.m_toolTip = entry.Value.toolTip;
-				keySlider.m_settings = new List<KeySlider.SliderSetting>();
+				keySlider.m_settings = [];
 				foreach (RangeOption rangeOption in entry.Value.rangeOptions) {
 					keySlider.m_settings.Add(new() {
 						m_name = rangeOption.name,
@@ -499,8 +476,8 @@ namespace Speedchoice {
 			private static void Postfix(FejdStartup __instance) {
 				for (int i = 0; i < __instance.m_worlds.Count; i++) {
 					Load(__instance.m_worlds[i]);
-					List<string> possibleProfiles = profiles.Keys.ToList<string>();
-					HashSet<string> copyKeys = new(__instance.m_worlds[i].m_startingGlobalKeys);
+					List<string> possibleProfiles = [.. profiles.Keys];
+					HashSet<string> copyKeys = [.. __instance.m_worlds[i].m_startingGlobalKeys];
 					// No workbenches isn't a default setting, but can be modified via persets.
 					copyKeys.Remove("noworkbench");
 					// Valheim often adds "preset ASD" to the world modifiers
@@ -580,18 +557,12 @@ namespace Speedchoice {
 		}
 		#endregion
 		#region ZRoutedRpc Registers, bossReveals, bossSkills, harmlessStructures, noBuildStations, showTimer, wherePortal, unlockPieces: ZoneSystem_Start
-		private struct Prefab {
-			public string name;
-			public string aoe;
-			public HitData.DamageTypes damage;
-
-			public Prefab(string name, string aoe, HitData.DamageTypes damage) {
-				this.name = name;
-				this.aoe = aoe;
-				this.damage = damage;
-			}
+		private struct Prefab(string name, string aoe, HitData.DamageTypes damage) {
+			public string name = name;
+			public string aoe = aoe;
+			public HitData.DamageTypes damage = damage;
 		}
-		private static readonly List<Prefab> harmingPrefabs = new() {
+		private static readonly List<Prefab> harmingPrefabs = [
             // Stakes
             new("piece_sharpstakes", "HIT AREA",  new() { m_pierce = 15 }),
 			new("piece_dvergr_sharpstakes", "Colliders/HIT AREA",  new() { m_pierce = 15 }),
@@ -606,7 +577,8 @@ namespace Speedchoice {
 			new("piece_brazierfloor01", "_enabled_high/FireBurn",  new() { m_fire = 10 }),
             // Snap Trap
             new("piece_trap_troll", "Damage Area",  new() { m_blunt = 50, m_pierce = 50, m_chop = 50 })
-		};
+		];
+
 		[HarmonyPatch(typeof(ZoneSystem), nameof(ZoneSystem.Start))]
 		private class ZoneSystem_Start {
 			private static void Postfix(ZoneSystem __instance) {
@@ -666,9 +638,9 @@ namespace Speedchoice {
 			}
 			private static void RequestPois(long sender, string json) {
 				List<Poi> pois = JsonConvert.DeserializeObject<List<Poi>>(json);
-				List<Poi> poiMapping = new();
+				List<Poi> poiMapping = [];
 				foreach (Poi poi in pois) {
-					foreach (KeyValuePair<Vector2i, ZoneSystem.LocationInstance> entry in ZoneSystem.instance.m_locationInstances) {
+					foreach (KeyValuePair<Vector2s, ZoneSystem.LocationInstance> entry in ZoneSystem.instance.m_locationInstances) {
 						if (entry.Value.m_location.m_prefabName == poi.prefabName) {
 							poiMapping.Add(new Poi(poi, entry.Value.m_position.x, entry.Value.m_position.y, entry.Value.m_position.z));
 						}
@@ -714,6 +686,7 @@ namespace Speedchoice {
 				}
 			}
 		}
+
 		[HarmonyPatch(typeof(ZRoutedRpc), nameof(ZRoutedRpc.RemovePeer))]
 		private class ZRoutedRpc_RemovePeer {
 			private static void Postfix(ZRoutedRpc __instance) {
@@ -732,6 +705,7 @@ namespace Speedchoice {
 			{ 2, 10f },
 			{ 3, 100f }
 		};
+
 		[HarmonyPatch(typeof(Ship), nameof(Ship.GetSailForce))]
 		public class Ship_GetSailForce {
 			private static void Postfix(ref Vector3 __result) {
@@ -741,6 +715,7 @@ namespace Speedchoice {
 				__result *= settings.sailForce;
 			}
 		}
+
 		[HarmonyPatch(typeof(Ship), nameof(Ship.Awake))]
 		public class Ship_Awake {
 			private static void Postfix(Ship __instance) {
@@ -756,7 +731,8 @@ namespace Speedchoice {
 			{ 1, 10 },
 			{ 2, 0 }
 		};
-		[HarmonyPatch(typeof(SE_Cozy), nameof(SE_Cozy.Setup), new[] { typeof(Character) })]
+
+		[HarmonyPatch(typeof(SE_Cozy), nameof(SE_Cozy.Setup), [typeof(Character)])]
 		public static class SE_Cozy_Setup {
 			static void Postfix(SE_Cozy __instance) {
 				if (settings.restOverride >= 0) {
@@ -768,81 +744,19 @@ namespace Speedchoice {
 			}
 		}
 		#endregion
-		#region trophyOdds, lootlessBosses: CharacterDrop.GenerateDropList, Trader.GetAvailableItems
-		private readonly static Dictionary<string, string> trophies = new() {
-			{ "$enemy_abomination", "TrophyAbomination" },
-			{ "$enemy_asksvin", "TrophyAsksvin" },
-			{ "$enemy_bjorn", "TrophyBjorn" },
-			{ "$enemy_blob", "TrophyBlob" },
-			{ "$enemy_blobelite", "TrophyBlob" },
-			{ "$enemy_blobtar", "TrophyGrowth" },
-			{ "$enemy_boar", "TrophyBoar" },
-			{ "$enemy_bonemass", "TrophyBonemass" },
-			{ "$enemy_bonemawserpent", "TrophyBonemawSerpent" },
-			{ "$enemy_charred_archer", "TrophyCharredArcher" },
-			{ "$enemy_charred_mage", "TrophyCharredMage" },
-			{ "$enemy_charred_melee", "TrophyCharredMelee" },
-			{ "$enemy_deathsquito", "TrophyDeathsquito" },
-			{ "$enemy_deer", "TrophyDeer" },
-			{ "$enemy_dragon", "TrophyDragonQueen" },
-			{ "$enemy_drake", "TrophyHatchling" },
-			{ "$enemy_draugr", "TrophyDraugr" },
-			{ "$enemy_draugrelite", "TrophyDraugrElite" },
-			{ "$enemy_dvergr", "TrophyDvergr" },
-			{ "$enemy_dvergr_mage", "TrophyDvergr" },
-			{ "$enemy_eikthyr", "TrophyEikthyr" },
-			{ "$enemy_fader", "TrophyFader" },
-			{ "$enemy_fallenvalkyrie", "TrophyFallenValkyrie" },
-			{ "$enemy_fenring", "TrophyFenring" },
-			{ "$enemy_fenringcultist", "TrophyCultist" },
-			{ "$enemy_fenringcultist_hildir", "TrophyCultist_Hildir" },
-			{ "$enemy_gdking", "TrophyTheElder" },
-			{ "$enemy_ghost", "TrophyGhost" },
-			{ "$enemy_gjall", "TrophyGjall" },
-			{ "$enemy_goblin", "TrophyGoblin" },
-			{ "$enemy_goblin_hildir", "TrophyGoblinBruteBrosShaman" },
-			{ "$enemy_goblinbrute", "TrophyGoblinBrute" },
-			{ "$enemy_goblinbrute_hildircombined", "TrophyGoblinBruteBrosBrute" },
-			{ "$enemy_goblinking", "TrophyGoblinKing" },
-			{ "$enemy_goblinshaman", "TrophyGoblinShaman" },
-			{ "$enemy_greydwarf", "TrophyGreydwarf" },
-			{ "$enemy_greydwarfbrute", "TrophyGreydwarfBrute" },
-			{ "$enemy_greydwarfshaman", "TrophyGreydwarfShaman" },
-			{ "$enemy_hare", "TrophyHare" },
-			{ "$enemy_kvastur", "TrophyKvastur" },
-			{ "$enemy_leech", "TrophyLeech" },
-			{ "$enemy_lox", "TrophyLox" },
-			{ "$enemy_morgen", "TrophyMorgen" },
-			{ "$enemy_neck", "TrophyNeck" },
-			{ "$enemy_seeker", "TrophySeeker" },
-			{ "$enemy_seekerbrute", "TrophySeekerBrute" },
-			{ "$enemy_seekerqueen", "TrophySeekerQueen" },
-			{ "$enemy_serpent", "TrophySerpent" },
-			{ "$enemy_skeleton", "TrophySkeleton" },
-			{ "$enemy_skeletonfire", "TrophySkeletonHildir" },
-			{ "$enemy_skeletonpoison", "TrophySkeletonPoison" },
-			{ "$enemy_stonegolem", "TrophySGolem" },
-			{ "$enemy_surtling", "TrophySurtling" },
-			{ "$enemy_thehive,", "TrophyHatchling" },
-			{ "$enemy_tick", "TrophyTick" },
-			{ "$enemy_troll", "TrophyFrostTroll" },
-			{ "$enemy_ulv", "TrophyUlv" },
-			{ "$enemy_unbjorn", "TrophyBjornUndead" },
-			{ "$enemy_volture", "TrophyVolture" },
-			{ "$enemy_wolf", "TrophyWolf" },
-			{ "$enemy_wraith", "TrophyWraith" }
-		};
+		#region trophyOdds, lootlessBosses: CharacterDrop.GenerateDropList
 		private readonly static Dictionary<float, float> trophyOdds = new() {
 			{ 1f, 0.25f },
 			{ 2f, 0.5f },
 			{ 3f, 0.75f },
 			{ 4f, 1f }
 		};
+
 		[HarmonyPatch(typeof(CharacterDrop), nameof(CharacterDrop.GenerateDropList))]
 		private class CharacterDrop_GenerateDropList {
 			private static void Postfix(CharacterDrop __instance, ref List<KeyValuePair<GameObject, int>> __result) {
 				if (settings.lootlessBosses && levels.ContainsKey(__instance.GetComponent<Character>().m_name)) {
-					__result = new List<KeyValuePair<GameObject, int>>();
+					__result = [];
 				}
 				else if (settings.trophyOverride >= 0) {
 					AddTrophy(__instance, ref __result, settings.trophyOverride / 100);
@@ -852,34 +766,18 @@ namespace Speedchoice {
 				}
 			}
 			private static void AddTrophy(CharacterDrop __instance, ref List<KeyValuePair<GameObject, int>> __result, float odds) {
-				if (trophies.TryGetValue(__instance.GetComponent<Character>().m_name, out string trophy) && !GotTrophy(trophy, __result) && UnityEngine.Random.value <= odds) {
-					CharacterDrop.Drop trophyDrop = __instance.m_drops.Find(drop => drop.m_prefab.name == trophy);
-					__result.Add(new KeyValuePair<GameObject, int>(trophyDrop.m_prefab, 1));
+				CharacterDrop.Drop trophy = __instance.m_drops.Find(drop => drop.m_chance > 0 && drop.m_prefab.name.StartsWith("Trophy"));
+				if (trophy != null && !GotTrophy(trophy, __result) && UnityEngine.Random.value <= odds) {
+					__result.Add(new KeyValuePair<GameObject, int>(trophy.m_prefab, 1));
 				}
 			}
-			private static bool GotTrophy(string trophy, List<KeyValuePair<GameObject, int>> __result) {
+			private static bool GotTrophy(CharacterDrop.Drop trophy, List<KeyValuePair<GameObject, int>> __result) {
 				foreach (KeyValuePair<GameObject, int> droppedItem in __result) {
-					if (trophy == droppedItem.Key.name) {
+					if (trophy.m_prefab.name == droppedItem.Key.name) {
 						return true;
 					}
 				}
 				return false;
-			}
-
-		}
-		[HarmonyPatch(typeof(Trader), nameof(Trader.GetAvailableItems))]
-		private class Trader_GetAvailableItems {
-			private static bool Prefix(Trader __instance, ref List<Trader.TradeItem> __result) {
-				if (settings.lootlessBosses) {
-					__result = new();
-					foreach (Trader.TradeItem item in __instance.m_items) {
-						if (string.IsNullOrEmpty(item.m_requiredGlobalKey)) {
-							__result.Add(item);
-						}
-					}
-					return false;
-				}
-				return true;
 			}
 		}
 		#endregion
@@ -919,15 +817,16 @@ namespace Speedchoice {
 		private readonly static Dictionary<string, List<Poi>> reveals = new() {
 			{ "$enemy_eikthyr", new() { new Poi("GDKing", Minimap.PinType.Boss, "$enemy_gdking", bossRadius), new Poi("Vendor_BlackForest", Minimap.PinType.Icon3, "Haldor", vendorRadius) } },
 			{ "$enemy_gdking", new() { new Poi("Bonemass", Minimap.PinType.Boss, "$enemy_bonemass", bossRadius), new Poi("BogWitch_Camp", Minimap.PinType.Icon3, "BogWitch", vendorRadius) } },
-			{ "$enemy_bonemass", new() { new Poi("Dragonqueen", Minimap.PinType.Boss, "$enemy_dragon", bossRadius) } },
+			{ "$enemy_bonemass", new() { new Poi("Dragonqueen", Minimap.PinType.Boss, "$enemy_dragon", bossRadius), new Poi("AncientUpgradeStation", Minimap.PinType.Icon3, "Forge of Potential", vendorRadius) } },
 			{ "$enemy_dragon", new() { new Poi("GoblinKing", Minimap.PinType.Boss, "$enemy_goblinking", bossRadius), new Poi("Hildir_camp", Minimap.PinType.Icon3, "Hildir", vendorRadius) } },
 			{ "$enemy_goblinking", new() { new Poi("Mistlands_DvergrBossEntrance1", Minimap.PinType.Boss, "$enemy_seekerqueen", bossRadius) } },
-			{ "$enemy_seekerqueen", new() { new Poi("FaderLocation", Minimap.PinType.Boss, "$enemy_fader_codename", bossRadius), new Poi("PlaceofMystery1", Minimap.PinType.Icon3, "Mysterious Location", vendorRadius) } }
+			{ "$enemy_seekerqueen", new() { new Poi("FaderLocation", Minimap.PinType.Boss, "$enemy_fader_codename", bossRadius), new Poi("PlaceofMystery1", Minimap.PinType.Icon3, "Mysterious Location", vendorRadius) } },
+			{ "$enemy_fader", new() { new Poi("DN_Bossroom", Minimap.PinType.Boss, "$hud_pin_dnboss", bossRadius) } }
 		};
-
 		private readonly static Dictionary<string, int> levels = new() {
-			{ "$enemy_fader",  100 },
-			{ "$enemy_seekerqueen",  80 },
+			{ "$enemy_frozenking_p3",  100 },
+			{ "$enemy_fader",  80 },
+			{ "$enemy_seekerqueen",  70 },
 			{ "$enemy_goblinking",  60 },
 			{ "$enemy_dragon",  50 },
 			{ "$enemy_bonemass",  40 },
@@ -971,82 +870,99 @@ namespace Speedchoice {
 			}
 		}
 		#endregion
-		#region cheatDeath, showLogouts: Game.Shutdown
-		[HarmonyPatch(typeof(Game), nameof(Game.Shutdown))]
-		private class Game_Shutdown {
-			private static void Prefix(Game __instance) {
-				// Player.m_localPlayer can be null while in loading screens
-				if (Player.m_localPlayer != null) {
-					if (settings.cheatDeath && Player.m_localPlayer.IsDead()) {
-						__instance.GetPlayerProfile().SetLogoutPoint(Player.m_localPlayer.transform.position);
-					}
+		#region cheatDeath: PlayerProfile.SaveLogoutPoint
+		[HarmonyPatch(typeof(PlayerProfile), nameof(PlayerProfile.SaveLogoutPoint))]
+		private class PlayerProfile_SaveLogoutPoint {
+			private static bool Prefix(PlayerProfile __instance) {
+				if (!settings.cheatDeath) {
+					return true;
+				}
 
-					Dictionary<string, string> customData = Player.m_localPlayer.m_customData;
-					int logoutCount = 1;
-					if (customData.TryGetValue(logoutsKey, out string savedLogouts)) {
-						Int32.TryParse(savedLogouts, out logoutCount);
-						logoutCount++;
-					}
-					customData[logoutsKey] = logoutCount.ToString();
+				if ((bool) Player.m_localPlayer && !Player.m_localPlayer.InIntro()) {
+					__instance.SetLogoutPoint(Player.m_localPlayer.transform.position);
 				}
-				speedchoice.StopAllCoroutines();
-				settings.isTimerRunning = false;
-				rockyied = false;
-				isSynced = false;
-				if (ZNet.instance.IsServer()) {
-					Save(ZNet.m_world);
-				}
+				return false;
 			}
 		}
 		#endregion
 		#region dropMaterials: Humanoid.Pickup, Inventory.AddItem
-		private readonly static List<ItemDrop.ItemData.ItemType> drops = new() {
-			ItemDrop.ItemData.ItemType.Material, ItemDrop.ItemData.ItemType.Trophy
-		};
-		private readonly static List<String> exhausts = new() {
-			"$item_barberkit", "$item_barleyflour", "$item_barrelrings", "$item_dragontear", "$item_scythehandle", "$item_yagluththing"
-		};
-		private readonly static List<String> retains = new() {
-			// Ammunition
-			"$item_catapult_ammo", "$item_bonefragments", "$item_catapult_training_ammo", "$item_charredbone", "$item_eitr",
-			// Cooking
-			"$item_asksvin_meat", "$item_barley", "$item_bjorn_meat", "$item_bonemawmeat", "$item_breaddough", "$item_bug_meat", "$item_chicken_meat", "$item_deer_meat",
-			"$item_fishandbreaduncooked", "$item_fish_raw", "$item_fish_raw", "$item_hare_meat", "$item_honeyglazedchickenuncooked", "$item_loxmeat", "$item_loxpie_uncooked",
-			"$item_magicallystuffedmushroomuncooked", "$item_meatplatteruncooked", "$item_mistharesupremeuncooked", "$item_necktail", "$item_piquantpie_uncooked", "$item_boar_meat",
-			"$item_roastedcrustpie_uncooked", "$item_serpentmeat", "$item_vikingcupcake_uncooked", "$item_volture_meat", "$item_wolf_meat", 
-			// Firework
-			"$item_blackcore", "$item_fireworkrocket_blue", "$item_fireworkrocket_cyan", "$item_fireworkrocket_green", "$item_fireworkrocket_purple", "$item_fireworkrocket_red",
-			"$item_fireworkrocket_white", "$item_fireworkrocket_yellow", "$item_resin", "$item_surtlingcore", "$item_thunderstone", 
-			// Forsaken
-			"$item_trophy_bonemass", "$item_trophy_deer", "$item_trophy_dragonqueen", "$item_trophy_eikthyr", "$item_trophy_fader", "$item_trophy_goblinking",
-			"$item_trophy_seeker_brute", "$item_trophy_seekerqueen", "$item_trophy_elder", "$item_witheredbone", 
-			// Mead Base
+		private readonly static List<ItemDrop.ItemData.ItemType> drops = [
+			ItemDrop.ItemData.ItemType.Fish, ItemDrop.ItemData.ItemType.Material, ItemDrop.ItemData.ItemType.Misc, ItemDrop.ItemData.ItemType.Trophy
+		];
+		private readonly static List<String> keeps = [
+			// Blast Furnace
+			"$item_blackmetalscrap", "$item_flametalore", "$item_goldore",
+			// Catapult
+			"$item_catapult_ammo", "$item_catapult_training_ammo", "$item_catapult_bloodgold_ammo", 
+			// Charcoal Kiln
+			"$item_finewood", "$item_roundlog", "$item_wood", 
+			// Eitr
+			"$item_eitr", 
+			// Eitr Refinery
+			"$item_sap", "$item_softtissue", 
+			// Fermenter
 			"$item_barleywinebase", "$item_meadbasebugrepellent", "$item_meadbasebzerker", "$item_meadbaseeitr_lingering", "$item_meadbaseeitr", "$item_meadbasefrostresist",
 			"$item_meadbasehasty", "$item_meadbasehealth_lingering", "$item_meadbasehealth_major", "$item_meadbasehealth_medium", "$item_meadbasehealth", "$item_meadbaselightfoot",
 			"$item_meadbasepoisonresist", "$item_meadbasestamina_lingering", "$item_meadbasestamina_medium", "$item_meadbasestamina", "$item_meadbasestrength", "$item_meadbaseswimmer",
-			"$item_meadbasetamer", "$item_meadbasetasty",
-			// Money
-			"$item_amber", "$item_amberpearl", "$item_coins", "$item_ruby", "$item_silvernecklace", 
-			// Processing
-			"$item_blackmetalscrap", "$item_bronzescrap", "$item_coal", "$item_copperore", "$item_copperscrap", "$item_finewood", "$item_flametalore_old", "$item_flametalore",
-			"$item_flax", "$item_ironore", "$item_ironscrap", "$item_roundlog", "$item_sap", "$item_silverore", "$item_softtissue", "$item_tinore", "$item_wood", 
+			"$item_meadbasetamer", "$item_meadbasetasty", 
+			// Firework
+			"$item_blackcore", "$item_fireworkrocket_blue", "$item_fireworkrocket_cyan", "$item_fireworkrocket_green", "$item_fireworkrocket_purple", "$item_fireworkrocket_red",
+			"$item_fireworkrocket_white", "$item_fireworkrocket_yellow", "$item_surtlingcore", "$item_thunderstone", 
+			// Forsaken Altar
+			"$item_ancientseed", "$item_bell", "$item_dragonegg", "$item_dvergrkey", "$item_goblintotem", "$item_hatefulblood", "$item_trophy_deer", "$item_trophy_seeker_brute",
+			"$item_witheredbone", 
+			// Frigid Kiln
+			"$item_ice", 
+			// Frost Foundry
+			"$item_chest_heavy_gold_uncooked", "$item_helmet_heavy_gold_uncooked", "$item_legs_heavy_gold_uncooked", "$item_chest_mage_gold_uncooked", "$item_helmet_mage_gold_uncooked",
+			"$item_legs_mage_gold_uncooked", "$item_chest_medium_gold_uncooked", "$item_helmet_medium_gold_uncooked", "$item_legs_medium_gold_uncooked", "$item_atgeir_gold_uncooked",
+			"$item_axe_gold_uncooked", "$item_battleaxe_gold_uncooked", "$item_bow_gold_uncooked", "$item_crossbow_gold_uncooked", "$item_fistweapon_gold_uncooked", "$item_frozenfuel",
+			"$item_keys_gold_uncooked", "$item_knife_gold_uncooked", "$item_mace_gold_uncooked", "$item_shield_buckler_gold_uncooked", "$item_shield_round_gold_uncooked",
+			"$item_shield_tower_gold_uncooked", "$item_sledge_gold_uncooked", "$item_spear_gold_uncooked", "$item_frostorbs_uncooked", "$item_staff_orbofahri_uncooked",
+			"$item_staff_spiritcaller_uncooked", "$item_staff_thunderblood_uncooked", "$item_sword_gold_uncooked", "$item_sword2h_gold_uncooked", 
+			// Hildir
+			"$item_chest_hildir1", "$item_chest_hildir2", "$item_chest_hildir3", 
+			// Memorial Site
+			"$item_memorialcoal", 
+			// Mörkhalla
+			"$item_bloodgoldkey", 
+			// Sacrificial Stones
+			"$item_frozenking_drop", "$item_trophy_bonemass", "$item_trophy_dragonqueen", "$item_trophy_eikthyr", "$item_trophy_fader", "$item_trophy_goblinking",
+			"$item_trophy_seekerqueen", "$item_trophy_elder", 
+			// Saddle
+			"$item_saddleasksvin", "$item_saddlelox", "$item_saddlemoose", 
+			// Shield Generator
+			"$item_bonefragments", "$item_charredbone", 
+			// Smelter
+			"$item_bronzescrap", "$item_coal", "$item_copperore", "$item_copperscrap", "$item_ironore", "$item_ironscrap", "$item_silverore", "$item_tinore", 
+			// Spinning Wheel
+			"$item_flax", 
+			// Sunken Crypt
+			"$item_cryptkey", 
 			// Taming
-			"$item_beechseeds", "$item_birchseeds", "$item_carrotseeds", "$item_dandelion", "$item_onionseeds", "$item_turnip", "$item_turnipseeds"
-		};
+			"$item_asksvin_egg", "$item_beechseeds", "$item_birchseeds", "$item_carrotseeds", "$item_chicken_egg", "$item_dandelion", "$item_onionseeds", "$item_turnip",
+			"$item_turnipseeds", 
+			// Torch
+			"$item_greydwarfeye", "$item_guck", "$item_resin", 
+			// Uncooked
+			"$item_asksvin_meat", "$item_bakedpoteitr_uncooked", "$item_bjorn_meat", "$item_bonemawmeat", "$item_breaddough", "$item_bug_meat", "$item_chicken_meat", "$item_deer_meat",
+			"$item_fishandbreaduncooked", "$item_fish_raw", "$item_fish_raw", "$item_hare_meat", "$item_honeyglazedchickenuncooked", "$item_kalechips_uncooked", "$item_loxmeat",
+			"$item_loxpie_uncooked", "$item_magicallystuffedmushroomuncooked", "$item_meatplatteruncooked", "$item_mistharesupremeuncooked", "$item_moose_meat", "$item_necktail",
+			"$item_ovenpancake_uncooked", "$item_piquantpie_uncooked", "$item_boar_meat", "$item_roastedcrustpie_uncooked", "$item_blubber", "$item_serpentmeat",
+			"$item_vikingcupcake_uncooked", "$item_volture_meat", "$item_wolf_meat", 
+			// Valuable
+			"$item_amber", "$item_amberpearl", "$item_ancientcoin", "$item_ancientgemstone_black", "$item_ancientgemstone_green", "$item_ancientgemstone_orange",
+			"$item_ancientgemstone_purple", "$item_coins", "$item_ruby", "$item_silvernecklace", 
+			// Windmill
+			"$item_barley", "$item_oatseeds"
+		];
 		private static void RemoveItem(Inventory inventory, ItemDrop.ItemData itemData) {
-			if (settings.dropMaterials && (drops.Contains(itemData.m_shared.m_itemType) || exhausts.Contains(itemData.m_shared.m_name)) && !retains.Contains(itemData.m_shared.m_name)) {
+			if (settings.dropMaterials && drops.Contains(itemData.m_shared.m_itemType) && !keeps.Contains(itemData.m_shared.m_name)) {
 				inventory.RemoveItem(itemData);
 			}
 		}
-		[HarmonyPatch(typeof(Humanoid), nameof(Humanoid.Pickup))]
-		private class Humanoid_Pickup {
-			private static void Postfix(Humanoid __instance, GameObject go) {
-				if (__instance.IsPlayer()) {
-					RemoveItem(__instance.m_inventory, go.GetComponent<ItemDrop>().m_itemData);
-				}
-			}
-		}
-		[HarmonyPatch(typeof(Inventory), nameof(Inventory.AddItem), new[] { typeof(ItemDrop.ItemData) })]
+
+		[HarmonyPatch(typeof(Inventory), nameof(Inventory.AddItem), [typeof(ItemDrop.ItemData)])]
 		private class Inventory_AddItem {
 			private static void Postfix(Inventory __instance, ItemDrop.ItemData item) {
 				if (Player.m_localPlayer != null && Player.m_localPlayer.GetInventory() == __instance) {
@@ -1054,15 +970,8 @@ namespace Speedchoice {
 				}
 			}
 		}
-		[HarmonyPatch(typeof(Inventory), nameof(Inventory.AddItem), new[] { typeof(ItemDrop.ItemData), typeof(Vector2i) })]
-		private class Inventory_AddItem_2 {
-			private static void Postfix(Inventory __instance, ItemDrop.ItemData item) {
-				if (Player.m_localPlayer != null && Player.m_localPlayer.GetInventory() == __instance) {
-					RemoveItem(__instance, item);
-				}
-			}
-		}
-		[HarmonyPatch(typeof(Inventory), nameof(Inventory.AddItem), new[] { typeof(ItemDrop.ItemData), typeof(int), typeof(int), typeof(int) })]
+
+		[HarmonyPatch(typeof(Inventory), nameof(Inventory.AddItem), [typeof(ItemDrop.ItemData), typeof(int), typeof(int), typeof(int), typeof(bool)])]
 		private class Inventory_AddItem_4 {
 			private static void Postfix(Inventory __instance, ItemDrop.ItemData item) {
 				if (Player.m_localPlayer != null && Player.m_localPlayer.GetInventory() == __instance) {
@@ -1090,6 +999,7 @@ namespace Speedchoice {
 				}
 			}
 		}
+
 		[HarmonyPatch(typeof(Fermenter), nameof(Fermenter.DelayedTap))]
 		private static class Fermenter_DelayedTap {
 			private static void Prefix(Fermenter __instance) {
@@ -1100,9 +1010,10 @@ namespace Speedchoice {
 		}
 		#endregion
 		#region instantUpgrades: ObjectDB.Awake, InventoryGui.SetupCrafting
-		private static Dictionary<string, Recipe> upgradeAbles = new();
+		private readonly static Dictionary<string, Recipe> upgradeAbles = [];
+
 		[HarmonyPatch(typeof(ObjectDB), nameof(ObjectDB.Awake))]
-		private class ObjectDB_Awake {
+		private static class ObjectDB_Awake {
 			private static void Postfix() {
 				upgradeAbles.Clear();
 				foreach (Recipe recipe in ObjectDB.instance.m_recipes) {
@@ -1152,10 +1063,32 @@ namespace Speedchoice {
 			}
 			return maxLevel;
 		}
+
 		[HarmonyPatch(typeof(InventoryGui), nameof(InventoryGui.SetupCrafting))]
 		private class InventoryGui_SetupCrafting {
 			private static void Prefix() {
 				UpgradeInventory(Player.m_localPlayer);
+			}
+		}
+		#endregion
+		#region lootlessBosses: Trader.GetAvailableItems
+		private readonly static List<string> trader_boss_keys = ["defeated_gdking", "defeated_dragon", "defeated_goblinking", "defeated_queen", "defeated_fader", "defeated_frozenking_p3"];
+
+		[HarmonyPatch(typeof(Trader), nameof(Trader.GetAvailableItems))]
+		private class Trader_GetAvailableItems {
+			private static bool Prefix(Trader __instance, ref List<Trader.TradeItem> __result) {
+				if (!settings.lootlessBosses) {
+					return true;
+				}
+				__result = [];
+				foreach (Trader.TradeItem item in __instance.m_items) {
+					if (string.IsNullOrEmpty(item.m_requiredGlobalKey) || (!trader_boss_keys.Contains(item.m_requiredGlobalKey) && ZoneSystem.instance.GetGlobalKey(item.m_requiredGlobalKey))) {
+						if (string.IsNullOrEmpty(item.m_buyKey) || !Player.m_localPlayer.HaveUniqueKey(item.m_buyKey)) {
+							__result.Add(item);
+						}
+					}
+				}
+				return false;
 			}
 		}
 		#endregion
@@ -1165,7 +1098,7 @@ namespace Speedchoice {
 			private static void Postfix(Hud __instance, Piece piece) {
 				if (settings.noBuildStations) {
 					GameObject obj = __instance.m_requirementItems[piece.m_resources.Length];
-					Image component = obj.transform.Find("res_icon").GetComponent<Image>();
+					UnityEngine.UI.Image component = obj.transform.Find("res_icon").GetComponent<UnityEngine.UI.Image>();
 					TMP_Text component3 = obj.transform.Find("res_amount").GetComponent<TMP_Text>();
 					component.color = Color.white;
 					component3.text = "";
@@ -1240,10 +1173,11 @@ namespace Speedchoice {
 		#endregion
 		#region showDeaths, showTimer, unlockRecipes, runSpeed, jumpForce: FejdStartup.Start, Player.OnSpawned
 		private static TMP_FontAsset font;
+
 		[HarmonyPatch(typeof(FejdStartup), nameof(FejdStartup.Start))]
 		private class FejdStartup_Start {
 			private static void Postfix() {
-				font = GameObject.Find("Topic")?.GetComponent<TextMeshProUGUI>().font;
+				font = GameObject.Find("GuiRoot/GUI/StartGui/EULA/Popup/Scroll View/Viewport/Content/EulaImportantFirstText").GetComponent<TextMeshProUGUI>().font;
 			}
 		}
 
@@ -1252,9 +1186,7 @@ namespace Speedchoice {
 		}
 		private static TMPro.TextMeshProUGUI deaths;
 		private static void UpdateDeaths() {
-			if (deaths != null) {
-				deaths.text = Game.instance.GetPlayerProfile().m_playerStats[PlayerStatType.Deaths].ToString();
-			}
+			deaths?.text = Game.instance.GetPlayerProfile().GetStat(PlayerStatType.Deaths).ToString();
 		}
 		private readonly static string logoutsKey = "logouts";
 		private static TMPro.TextMeshProUGUI logouts;
@@ -1266,9 +1198,9 @@ namespace Speedchoice {
 				logouts.text = "0";
 			}
 		}
-
 		private static TMPro.TextMeshProUGUI timer;
 		private static bool unlockedRecipes = false;
+
 		[HarmonyPatch(typeof(Player), nameof(Player.OnSpawned))]
 		private class Player_OnSpawned {
 			private static Transform healthpanel;
@@ -1304,8 +1236,10 @@ namespace Speedchoice {
 				icon.AddComponent<UnityEngine.UI.Image>().sprite = GetItemIcon(item);
 
 				GameObject text = LeftOf(name + "Text", healthPanel, foodTransform);
+				text.SetActive(false);
 				TMPro.TextMeshProUGUI tmpGui = text.AddComponent<TextMeshProUGUI>();
 				DefaultFont(ref tmpGui, Color.white, 1f / 2);
+				text.SetActive(true);
 				tmpGui.alignment = TextAlignmentOptions.BottomRight;
 				return tmpGui;
 			}
@@ -1313,6 +1247,7 @@ namespace Speedchoice {
 				Transform hudroot = Hud.instance.transform.Find("hudroot");
 				RectTransform healthTransform = hudroot.Find("healthpanel").GetComponent<RectTransform>();
 				GameObject clock = new("timer");
+				clock.SetActive(false);
 				clock.transform.SetParent(hudroot);
 
 				RectTransform clockTransform = clock.AddComponent<RectTransform>();
@@ -1323,6 +1258,7 @@ namespace Speedchoice {
 
 				TMPro.TextMeshProUGUI tmpGui = clock.AddComponent<TextMeshProUGUI>();
 				DefaultFont(ref tmpGui, new(1f, 0.717f, 0.360f, 1f), 2f / 3);
+				clock.SetActive(true);
 				tmpGui.text = $"<mspace=0.5em>{TimeSpan.FromSeconds(settings.time)}</mspace>";
 				return tmpGui;
 			}
@@ -1374,6 +1310,30 @@ namespace Speedchoice {
 			}
 		}
 		#endregion
+		#region showLogouts: Game.Shutdown
+		[HarmonyPatch(typeof(Game), nameof(Game.Shutdown))]
+		private class Game_Shutdown {
+			private static void Prefix(Game __instance) {
+				// Player.m_localPlayer can be null while in loading screens
+				if (Player.m_localPlayer != null) {
+					Dictionary<string, string> customData = Player.m_localPlayer.m_customData;
+					int logoutCount = 1;
+					if (customData.TryGetValue(logoutsKey, out string savedLogouts)) {
+						Int32.TryParse(savedLogouts, out logoutCount);
+						logoutCount++;
+					}
+					customData[logoutsKey] = logoutCount.ToString();
+				}
+				speedchoice.StopAllCoroutines();
+				settings.isTimerRunning = false;
+				rockyied = false;
+				isSynced = false;
+				if (ZNet.instance.IsServer()) {
+					Save(ZNet.m_world);
+				}
+			}
+		}
+		#endregion
 		#region showTimer: Player.Update
 		private static bool isSynced = false;
 		[HarmonyPatch(typeof(Player), nameof(Player.Update))]
@@ -1395,9 +1355,7 @@ namespace Speedchoice {
 		private static IEnumerator TimerUpdate() {
 			while (true) {
 				if (!Game.IsPaused()) {
-					if (timer != null) {
-						timer.text = $"<mspace=0.5em>{TimeSpan.FromSeconds(settings.time)}</mspace>";
-					}
+					timer?.text = $"<mspace=0.5em>{TimeSpan.FromSeconds(settings.time)}</mspace>";
 					settings.time++;
 				}
 				yield return new WaitForSeconds(1f);
@@ -1406,28 +1364,19 @@ namespace Speedchoice {
 		#endregion
 		#region structureLoot, wherePortal: Player.PlacePiece, TeleportWorld.SetText, Piece.DropResources
 		private static bool overridePieceDrops = false;
-		private struct PortalPin {
-			public float x;
-			public float y;
-			public float z;
-			public string text;
-			public bool add;
-			public bool remove;
-
-			public PortalPin(Vector3 vector, string text, bool add, bool remove) {
-				x = vector.x;
-				y = vector.y;
-				z = vector.z;
-				this.text = text;
-				this.add = add;
-				this.remove = remove;
-			}
+		private struct PortalPin(Vector3 vector, string text, bool add, bool remove) {
+			public float x = vector.x;
+			public float y = vector.y;
+			public float z = vector.z;
+			public string text = text;
+			public bool add = add;
+			public bool remove = remove;
 		}
 		private static string PortalPinJson(Vector3 vector, string text, bool add, bool remove) {
 			return JsonConvert.SerializeObject(new PortalPin(vector, text, add, remove));
 		}
 
-		[HarmonyPatch(typeof(Player), nameof(Player.PlacePiece), new[] { typeof(Piece), typeof(Vector3), typeof(Quaternion), typeof(bool) })]
+		[HarmonyPatch(typeof(Player), nameof(Player.PlacePiece), [typeof(Piece), typeof(Vector3), typeof(Quaternion), typeof(bool), typeof(bool)])]
 		private class Player_PlacePiece {
 			private static void Postfix(Piece piece, Vector3 pos) {
 				if (settings.wherePortal && piece != null && (piece.name == "portal_wood" || piece.name == "portal_stone")) {
@@ -1435,6 +1384,7 @@ namespace Speedchoice {
 				}
 			}
 		}
+
 		[HarmonyPatch(typeof(TeleportWorld), nameof(TeleportWorld.SetText))]
 		private class TeleportWorld_SetText {
 			private static void Postfix(TeleportWorld __instance, string text) {
@@ -1443,6 +1393,7 @@ namespace Speedchoice {
 				}
 			}
 		}
+
 		[HarmonyPatch(typeof(Piece), nameof(Piece.DropResources))]
 		private class Piece_DropResources {
 			private static void Prefix(Piece __instance) {
@@ -1457,6 +1408,7 @@ namespace Speedchoice {
 				}
 			}
 		}
+
 		[HarmonyPatch(typeof(Piece), nameof(Piece.FreeBuildKey))]
 		private class Piece_FreeBuildKey {
 			private static bool Prefix(Piece __instance, ref GlobalKeys __result) {
@@ -1473,6 +1425,7 @@ namespace Speedchoice {
 		// Secret Settings
 		#region alwaysRocky: ZoneSystem.PlaceVegetation, Pickable.Awake
 		private static bool rockyied = false;
+
 		[HarmonyPatch(typeof(ZoneSystem), nameof(ZoneSystem.PlaceVegetation))]
 		private class ZoneSystem_PlaceVegetation {
 			private static void Prefix(ZoneSystem __instance) {
@@ -1486,6 +1439,7 @@ namespace Speedchoice {
 				}
 			}
 		}
+
 		[HarmonyPatch(typeof(Pickable), nameof(Pickable.Awake))]
 		private class Pickable_Awake {
 			private static void Prefix(Pickable __instance) {
