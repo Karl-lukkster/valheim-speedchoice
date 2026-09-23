@@ -10,7 +10,7 @@ Speedchoice modifiers are saved to a json file named worldName\_speedchoice.json
 
 - <b>`Speedchoice`</b> - Recommended Speedchoice settings. Faster gameplay, no grinding required, and Boss Reveals make the whole game completable in one sitting.
 - <b>`Trailblazer`</b> - OatHorse's Trailblazer settings, without the trophy hunt aspect.
-- <b>`Blazing`</b> - Accelerated version of a Reverse Boss playthrough. Defeat the bosses in order, and get rewarded in Skill Levels. However, the bosses have no drops. Thus no Forsaken Powers, or Moder's Tears for late game crafting.
+- <b>`Randomizer`</b> - Recommended settings for playing Speedchoice Randomizer.
 
 ### Sliders
 
@@ -49,7 +49,7 @@ These settings are not included in the UI. One can utilize them by changing the 
 - <b>`sailForce`</b> - Multiplies the speed at which boats sail, stacks multiplicity with <b>`Boat Speed`</b>.
 - <b>`restOverride`</b> - Overrides <b>`Time to Rest`</b>, causing the player to become rested after the given number of seconds.
 - <b>`trophyOverride`</b> - Overrides <b>`Trophy Odds`</b>, adding an extra reroll for trophy drops equal to the given percent.
-- <b>`unlockPieces`</b> - All build Pieces are immediately unlocked without acquiring the Materials.
+- <b>`unlockPieces`</b> - All build Pieces are immediately unlocked without acquiring the Materials or Build Station.
 - <b>`unlockRecipes`</b> - All crafting Recipes are immediately unlocked without acquiring the Materials or Crafting Station levels.
 
 ## Installation
@@ -69,10 +69,8 @@ These settings are not included in the UI. One can utilize them by changing the 
 ### Manual
 
 1. Install [BepInExPack Valheim](https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/)
-2. Download the `dll files` from [Speedchoice releases](https://github.com/Karl-lukkster/valheim-speedchoice/releases/latest)
-	- Speedchoice.dll
-	- Newtonsoft.Json.dll
-3. Move the `dll files` to `<Steam Location>/steamapps/common/Valheim/BepInEx/plugins/`
+2. Download `Speedchoice.dll` from [Speedchoice releases](https://github.com/Karl-lukkster/valheim-speedchoice/releases/latest)
+3. Move `Speedchoice.dll` to `<Steam Location>/steamapps/common/Valheim/BepInEx/plugins/`
 
 ## Active Development
 

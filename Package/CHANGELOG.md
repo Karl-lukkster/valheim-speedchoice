@@ -1,5 +1,29 @@
 # Changelog
 
+## Version 1.1.0
+
+Valheim 1.0 update! 
+
+### Presets
+
+- <b>`Randomizer`</b> - New Preset, replacing <b>`Blazing`</b>. Recommended settings for playing Speedchoice Randomizer.
+
+### Sliders
+
+- <b>`Trophy Odds`</b> - Rewrite to support enemies added in Valheim 1.0. 
+
+### Toggles
+
+- <b>`Boss Reveals`</b> - Defeating Bonemass will now reveal the Forge of Potential. Defeating Fader will now reveal the Aesir Passage.
+- <b>`Boss Skills`</b> - New level benchmarks, accounting for an additional forsaken.
+- <b>`Lootless Bosses`</b> - Now includes the new forsaken. Updates trader inventory to correctly account for new boss keys and only boss keys.
+- <b>`Cheat Death`</b> - Rewritten as the "save logout code" changed in 1.0. Same functionality: If one logs out shortly after dying, they'll log in where they died rather than their spawn point.
+- <b>`Drop Materials`</b> - Materials removed from player's inventory updated to include 1.0 items as needed. 
+
+### Secret Settings
+
+- <b>`trophyOverride`</b> - Rewrite to support enemies added in Valheim 1.0. 
+
 ## Version 1.0.2
 
 Fix issues with <b>`Instant Upgrades`</b>.

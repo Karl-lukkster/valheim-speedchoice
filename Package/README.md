@@ -10,11 +10,11 @@ Speedchoice modifiers are saved to a json file named worldName\_speedchoice.json
 
 - <b>`Speedchoice`</b> - Recommended Speedchoice settings. Faster gameplay, no grinding required, and Boss Reveals make the whole game completable in one sitting.
 - <b>`Trailblazer`</b> - OatHorse's Trailblazer settings, without the trophy hunt aspect.
-- <b>`Blazing`</b> - Accelerated version of a Reverse Boss playthrough. Defeat the bosses in order, and get rewarded in Skill Levels. However, the bosses have no drops. Thus no Forsaken Powers, or Moder's Tears for late game crafting.
+- <b>`Randomizer`</b> - Recommended settings for playing Speedchoice Randomizer.
 
 ### Sliders
 
-- <b>`Boat Speed`</b> - Changes the speed at which ships sail.
+- <b>`Boat Speed`</b> - Increases the speed at which ships sail.
 - <b>`Time to Rest`</b> - Adjusts how long it takes to become rested.
 - <b>`Trophy Odds`</b> - Adds an extra reroll for trophy drops to all enemies.
 
@@ -30,14 +30,14 @@ Speedchoice modifiers are saved to a json file named worldName\_speedchoice.json
 - <b>`Fast Fermenters`</b> - Fermenters brew quickly.
 - <b>`Increased Exp`</b> - Increases Skill experience gains by 500%.
 - <b>`Instant Upgrades`</b> - Instantly upgrades any upgradeable tool or armor.
-- <b>`Structure Loot`</b> - Naturally occurring structures, such as houses, will drop into materials when deconstructed with a hammer in "No Build Cost".
+- <b>`Structure Loot`</b> - Naturally occurring structures will drop materials when deconstructed with a hammer in "No Build Cost".
 - <b>`Where's my Portal?`</b> - Adds a portal pin to the map upon placing a portal.
 - <b>`No Build Stations`</b> - Player built pieces can be constructed without the required nearby crafting stations. For instance a Portal can be built without a nearby Workbench.
 - <b>`No Craft Cost`</b> - Items can be crafted without consuming or requiring the materials to do so.
 - <b>`No Craft Levels`</b> - Items can be crafted without the prerequisite Crafting Station Level to do so.
-- <b>`Show Deaths`</b> - Adds an UI element showing the number of Deaths.
-- <b>`Show Logouts`</b> - Adds an UI element showing the number of Logouts.
-- <b>`Show Timer`</b> - Adds an UI element showing how long there has been activity in the world. Starts on first input, and pauses when the game pauses.
+- <b>`Show Deaths`</b> - Adds a UI element showing the number of Deaths.
+- <b>`Show Logouts`</b> - Adds a UI element showing the number of Logouts.
+- <b>`Show Timer`</b> - Adds a UI element showing how long there has been activity in the world. Starts on first input, and pauses when the game pauses.
 
 ### Secret Settings
 
@@ -49,5 +49,5 @@ These settings are not included in the UI. One can utilize them by changing the 
 - <b>`sailForce`</b> - Multiplies the speed at which boats sail, stacks multiplicity with <b>`Boat Speed`</b>.
 - <b>`restOverride`</b> - Overrides <b>`Time to Rest`</b>, causing the player to become rested after the given number of seconds.
 - <b>`trophyOverride`</b> - Overrides <b>`Trophy Odds`</b>, adding an extra reroll for trophy drops equal to the given percent.
-- <b>`unlockPieces`</b> - All build Pieces are immediately unlocked without acquiring the Materials.
-- <b>`unlockRecipes`</b> - All crafting Recipes are immediately unlocked without acquiring the materials or Crafting Station levels.
+- <b>`unlockPieces`</b> - All build Pieces are immediately unlocked without acquiring the Materials or Build Station.
+- <b>`unlockRecipes`</b> - All crafting Recipes are immediately unlocked without acquiring the Materials or Crafting Station levels.

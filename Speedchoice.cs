@@ -153,9 +153,9 @@ namespace Speedchoice {
 					{ "No Build Stations", true },
 					{ "No Craft Cost", true },
 					{ "No Craft Levels", false },
-					{ "Show Deaths", true },
-					{ "Show Logouts", true },
-					{ "Show Timer", true },
+					{ "Show Deaths", false },
+					{ "Show Logouts", false },
+					{ "Show Timer", false },
 					{ "Structure Loot", true },
 					{ "Where's my Portal?", true }
 				}
@@ -982,7 +982,7 @@ namespace Speedchoice {
 		#endregion
 		#region fastCrops: Plant.TimeSincePlanted
 		[HarmonyPatch(typeof(Plant), nameof(Plant.TimeSincePlanted))]
-		private static class Plant_TimeSincePlanted {
+		private class Plant_TimeSincePlanted {
 			private static void Postfix(Plant __instance, ref double __result) {
 				if (settings.fastCrops) {
 					__result = (double) __instance.m_growTimeMax + 1;
@@ -992,7 +992,7 @@ namespace Speedchoice {
 		#endregion
 		#region fastFermenters: Fermenter.Awake
 		[HarmonyPatch(typeof(Fermenter), nameof(Fermenter.Awake))]
-		private static class Fermenter_Awake {
+		private class Fermenter_Awake {
 			private static void Postfix(Fermenter __instance) {
 				if (settings.fastFermenters) {
 					__instance.m_fermentationDuration = 10;
@@ -1001,7 +1001,7 @@ namespace Speedchoice {
 		}
 
 		[HarmonyPatch(typeof(Fermenter), nameof(Fermenter.DelayedTap))]
-		private static class Fermenter_DelayedTap {
+		private class Fermenter_DelayedTap {
 			private static void Prefix(Fermenter __instance) {
 				if (settings.fastFermenters) {
 					__instance.GetItemConversion(__instance.m_delayedTapItem).m_producedItems = 10;
@@ -1013,7 +1013,7 @@ namespace Speedchoice {
 		private readonly static Dictionary<string, Recipe> upgradeAbles = [];
 
 		[HarmonyPatch(typeof(ObjectDB), nameof(ObjectDB.Awake))]
-		private static class ObjectDB_Awake {
+		private class ObjectDB_Awake {
 			private static void Postfix() {
 				upgradeAbles.Clear();
 				foreach (Recipe recipe in ObjectDB.instance.m_recipes) {
@@ -1313,8 +1313,7 @@ namespace Speedchoice {
 		#region showLogouts: Game.Shutdown
 		[HarmonyPatch(typeof(Game), nameof(Game.Shutdown))]
 		private class Game_Shutdown {
-			private static void Prefix(Game __instance) {
-				// Player.m_localPlayer can be null while in loading screens
+			private static void Prefix() {
 				if (Player.m_localPlayer != null) {
 					Dictionary<string, string> customData = Player.m_localPlayer.m_customData;
 					int logoutCount = 1;
