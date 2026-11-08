@@ -16,7 +16,7 @@ namespace Speedchoice {
 	public class Speedchoice : BaseUnityPlugin {
 		public const string PluginGUID = "com.lukkster.Speedchoice";
 		public const string PluginName = "Speedchoice";
-		public const string PluginVersion = "1.1.0";
+		public const string PluginVersion = "1.1.1";
 		private readonly Harmony harmony = new(PluginGUID);
 		private static Speedchoice speedchoice;
 		private void Start() {
@@ -556,7 +556,7 @@ namespace Speedchoice {
 			}
 		}
 		#endregion
-		#region ZRoutedRpc Registers, bossReveals, bossSkills, harmlessStructures, noBuildStations, showTimer, wherePortal, unlockPieces: ZoneSystem_Start
+		#region ZRoutedRpc Registers, bossReveals, bossSkills, harmlessStructures, showTimer, wherePortal: ZoneSystem_Start
 		private struct Prefab(string name, string aoe, HitData.DamageTypes damage) {
 			public string name = name;
 			public string aoe = aoe;
@@ -581,22 +581,10 @@ namespace Speedchoice {
 
 		[HarmonyPatch(typeof(ZoneSystem), nameof(ZoneSystem.Start))]
 		private class ZoneSystem_Start {
-			private static void Postfix(ZoneSystem __instance) {
+			private static void Postfix() {
 				if (ZNet.instance.IsServer()) {
 					Load(ZNet.m_world);
 					HarmlessPieces();
-					if (settings.noBuildStations) {
-						__instance.SetGlobalKey(GlobalKeys.NoWorkbench);
-					}
-					else {
-						__instance.RemoveGlobalKey(GlobalKeys.NoWorkbench);
-					}
-					if (settings.unlockPieces) {
-						__instance.SetGlobalKey(GlobalKeys.AllPiecesUnlocked);
-					}
-					else {
-						__instance.RemoveGlobalKey(GlobalKeys.AllPiecesUnlocked);
-					}
 				}
 				ZRoutedRpc.instance.Register<string>("FromServer", FromServer);
 				ZRoutedRpc.instance.Register<string>("StartTimer", StartTimer);
@@ -733,8 +721,8 @@ namespace Speedchoice {
 		};
 
 		[HarmonyPatch(typeof(SE_Cozy), nameof(SE_Cozy.Setup), [typeof(Character)])]
-		public static class SE_Cozy_Setup {
-			static void Postfix(SE_Cozy __instance) {
+		public class SE_Cozy_Setup {
+			private static void Postfix(SE_Cozy __instance) {
 				if (settings.restOverride >= 0) {
 					__instance.m_delay = settings.restOverride;
 				}
@@ -812,16 +800,36 @@ namespace Speedchoice {
 				this.z = z;
 			}
 		}
-		private const float bossRadius = 500f;
+
 		private const float vendorRadius = 100f;
+		private const float bossRadius = 500f;
 		private readonly static Dictionary<string, List<Poi>> reveals = new() {
-			{ "$enemy_eikthyr", new() { new Poi("GDKing", Minimap.PinType.Boss, "$enemy_gdking", bossRadius), new Poi("Vendor_BlackForest", Minimap.PinType.Icon3, "Haldor", vendorRadius) } },
-			{ "$enemy_gdking", new() { new Poi("Bonemass", Minimap.PinType.Boss, "$enemy_bonemass", bossRadius), new Poi("BogWitch_Camp", Minimap.PinType.Icon3, "BogWitch", vendorRadius) } },
-			{ "$enemy_bonemass", new() { new Poi("Dragonqueen", Minimap.PinType.Boss, "$enemy_dragon", bossRadius), new Poi("AncientUpgradeStation", Minimap.PinType.Icon3, "Forge of Potential", vendorRadius) } },
-			{ "$enemy_dragon", new() { new Poi("GoblinKing", Minimap.PinType.Boss, "$enemy_goblinking", bossRadius), new Poi("Hildir_camp", Minimap.PinType.Icon3, "Hildir", vendorRadius) } },
-			{ "$enemy_goblinking", new() { new Poi("Mistlands_DvergrBossEntrance1", Minimap.PinType.Boss, "$enemy_seekerqueen", bossRadius) } },
-			{ "$enemy_seekerqueen", new() { new Poi("FaderLocation", Minimap.PinType.Boss, "$enemy_fader_codename", bossRadius), new Poi("PlaceofMystery1", Minimap.PinType.Icon3, "Mysterious Location", vendorRadius) } },
-			{ "$enemy_fader", new() { new Poi("DN_Bossroom", Minimap.PinType.Boss, "$hud_pin_dnboss", bossRadius) } }
+			{ "$enemy_eikthyr", new() {
+				new Poi("Vendor_BlackForest", Minimap.PinType.Icon3, "Haldor", vendorRadius),
+				new Poi("GDKing", Minimap.PinType.Boss, "$enemy_gdking", bossRadius)
+			} },
+			{ "$enemy_gdking", new() {
+				new Poi("BogWitch_Camp", Minimap.PinType.Icon3, "The Bog Witch", vendorRadius),
+				new Poi("Bonemass", Minimap.PinType.Boss, "$enemy_bonemass", bossRadius)
+			} },
+			{ "$enemy_bonemass", new() {
+				new Poi("AncientUpgradeStation", Minimap.PinType.Icon3, "Forge of Potential", vendorRadius),
+				new Poi("Dragonqueen", Minimap.PinType.Boss, "$enemy_dragon", bossRadius)
+			} },
+			{ "$enemy_dragon", new() {
+				new Poi("Hildir_camp", Minimap.PinType.Icon3, "Hildir", vendorRadius),
+				new Poi("GoblinKing", Minimap.PinType.Boss, "$enemy_goblinking", bossRadius)
+			} },
+			{ "$enemy_goblinking", new() {
+				new Poi("Mistlands_DvergrBossEntrance1", Minimap.PinType.Boss, "$enemy_seekerqueen", bossRadius)
+			} },
+			{ "$enemy_seekerqueen", new() {
+				new Poi("PlaceofMystery1", Minimap.PinType.Hildir1, "$placeofmystery", vendorRadius),
+				new Poi("FaderLocation", Minimap.PinType.Boss, "$enemy_fader_codename", bossRadius)
+			} },
+			{ "$enemy_fader", new() {
+				new Poi("DN_Bossroom", Minimap.PinType.Boss, "$hud_pin_dnboss", bossRadius)
+			} }
 		};
 		private readonly static Dictionary<string, int> levels = new() {
 			{ "$enemy_frozenking_p3",  100 },
@@ -1107,6 +1115,140 @@ namespace Speedchoice {
 			}
 		}
 		#endregion
+		#region noBuildStations, showDeaths, showTimer, runSpeed, jumpForce, unlockPieces, unlockRecipes: FejdStartup.Start, Player.OnSpawned
+		private static TMP_FontAsset font;
+
+		[HarmonyPatch(typeof(FejdStartup), nameof(FejdStartup.Start))]
+		private class FejdStartup_Start {
+			private static void Postfix() {
+				font = GameObject.Find("GuiRoot/GUI/StartGui/EULA/Popup/Scroll View/Viewport/Content/EulaImportantFirstText").GetComponent<TextMeshProUGUI>().font;
+			}
+		}
+
+		private static Sprite GetItemIcon(string itemPrefab) {
+			return ObjectDB.instance.GetItemPrefab(itemPrefab).GetComponent<ItemDrop>().m_itemData.m_shared.m_icons[0];
+		}
+		private static TMPro.TextMeshProUGUI deaths;
+		private static void UpdateDeaths() {
+			//TODO: difficulty requiement current?
+			deaths?.text = Game.instance.GetPlayerProfile().GetStat(PlayerStatType.Deaths, DifficultyRequirement.Any).ToString();
+		}
+		private readonly static string logoutsKey = "logouts";
+		private static TMPro.TextMeshProUGUI logouts;
+		private static void UpdateLogouts() {
+			if (Player.m_localPlayer.m_customData.TryGetValue(logoutsKey, out string savedLogouts)) {
+				logouts.text = savedLogouts;
+			}
+			else {
+				logouts.text = "0";
+			}
+		}
+		private static TMPro.TextMeshProUGUI timer;
+
+		[HarmonyPatch(typeof(Player), nameof(Player.OnSpawned))]
+		private class Player_OnSpawned {
+			private static Transform healthpanel;
+			private static GameObject LeftOf(string name, Transform parent, RectTransform from) {
+				GameObject gameObject = new(name);
+				gameObject.transform.SetParent(parent);
+				RectTransform goTransform = gameObject.AddComponent<RectTransform>();
+				goTransform.sizeDelta = from.sizeDelta;
+				goTransform.anchoredPosition = from.anchoredPosition - new Vector2(from.sizeDelta.x + 1, 0);
+				goTransform.anchorMax = from.anchorMax;
+				goTransform.anchorMin = from.anchorMin;
+				return gameObject;
+			}
+			private static void DefaultFont(ref TMPro.TextMeshProUGUI tmpGui, Color color, float ratio) {
+				tmpGui.font = font;
+				tmpGui.material = font.material;
+				tmpGui.color = color;
+				tmpGui.alignment = TextAlignmentOptions.Center;
+				tmpGui.fontMaterial.EnableKeyword("OUTLINE_ON");
+				tmpGui.outlineColor = Color.black;
+				tmpGui.outlineWidth = 0.1f;
+				tmpGui.fontStyle = FontStyles.Bold;
+				tmpGui.fontSize = Hud.instance.transform.Find("hudroot/healthpanel/food0").GetComponent<RectTransform>().sizeDelta.x * ratio;
+			}
+			private static TMPro.TextMeshProUGUI AddCounter(string name, string item, int y) {
+				Transform healthPanel = Hud.instance.transform.Find("hudroot/healthpanel");
+				RectTransform foodTransform = healthPanel.transform.Find("food" + y).GetComponent<RectTransform>();
+
+				GameObject background = LeftOf(name + "Bkg", healthPanel, foodTransform);
+				JsonUtility.FromJsonOverwrite(JsonUtility.ToJson(foodTransform.GetComponent<UnityEngine.UI.Image>()), background.AddComponent<UnityEngine.UI.Image>());
+
+				GameObject icon = LeftOf(name + "Icon", healthPanel, foodTransform);
+				icon.AddComponent<UnityEngine.UI.Image>().sprite = GetItemIcon(item);
+
+				GameObject text = LeftOf(name + "Text", healthPanel, foodTransform);
+				text.SetActive(false);
+				TMPro.TextMeshProUGUI tmpGui = text.AddComponent<TextMeshProUGUI>();
+				DefaultFont(ref tmpGui, Color.white, 1f / 2);
+				text.SetActive(true);
+				tmpGui.alignment = TextAlignmentOptions.BottomRight;
+				return tmpGui;
+			}
+			private static TMPro.TextMeshProUGUI AddTimer() {
+				Transform hudroot = Hud.instance.transform.Find("hudroot");
+				RectTransform healthTransform = hudroot.Find("healthpanel").GetComponent<RectTransform>();
+				GameObject clock = new("timer");
+				clock.SetActive(false);
+				clock.transform.SetParent(hudroot);
+
+				RectTransform clockTransform = clock.AddComponent<RectTransform>();
+				clockTransform.sizeDelta = new Vector2(1000, 0);
+				clockTransform.anchoredPosition = healthTransform.anchoredPosition + new Vector2(71 * healthTransform.sizeDelta.x / 100, -112 * healthTransform.sizeDelta.y / 100);
+				clockTransform.anchorMax = healthTransform.anchorMax;
+				clockTransform.anchorMin = healthTransform.anchorMin;
+
+				TMPro.TextMeshProUGUI tmpGui = clock.AddComponent<TextMeshProUGUI>();
+				DefaultFont(ref tmpGui, new(1f, 0.717f, 0.360f, 1f), 2f / 3);
+				clock.SetActive(true);
+				tmpGui.text = $"<mspace=0.5em>{TimeSpan.FromSeconds(settings.time)}</mspace>";
+				return tmpGui;
+			}
+			private static void Postfix(Player __instance) {
+				if (settings.noBuildStations) {
+					ZoneSystem.instance.SetGlobalKey(GlobalKeys.NoWorkbench);
+				}
+				else {
+					ZoneSystem.instance.RemoveGlobalKey(GlobalKeys.NoWorkbench);
+				}
+
+				healthpanel = Hud.instance.transform.Find("hudroot/healthpanel");
+				int y = 0;
+				if (settings.showDeaths && deaths == null) {
+					deaths = AddCounter("deaths", "Charredskull", y);
+					UpdateDeaths();
+					y = 1;
+				}
+
+				if (settings.showLogouts && logouts == null) {
+					logouts = AddCounter("logouts", "RoundLog", y);
+					UpdateLogouts();
+				}
+
+				if (settings.showTimer && timer == null) {
+					timer = AddTimer();
+				}
+
+				__instance.m_runSpeed *= settings.runSpeed;
+				__instance.m_jumpForce *= settings.jumpForce;
+
+				if (settings.unlockPieces) {
+					ZoneSystem.instance.SetGlobalKey(GlobalKeys.AllPiecesUnlocked);
+				}
+				else {
+					ZoneSystem.instance.RemoveGlobalKey(GlobalKeys.AllPiecesUnlocked);
+				}
+				if (settings.unlockRecipes) {
+					ZoneSystem.instance.SetGlobalKey(GlobalKeys.AllRecipesUnlocked);
+				}
+				else {
+					ZoneSystem.instance.RemoveGlobalKey(GlobalKeys.AllRecipesUnlocked);
+				}
+			}
+		}
+		#endregion
 		#region noCraftCost: Player.HaveRequirementItems, InventoryGui.SetupRequirement, InventoryGui.DoCrafting
 		[HarmonyPatch(typeof(Player), nameof(Player.HaveRequirementItems))]
 		private class Player_HaveRequirementItems {
@@ -1171,137 +1313,6 @@ namespace Speedchoice {
 			}
 		}
 		#endregion
-		#region showDeaths, showTimer, unlockRecipes, runSpeed, jumpForce: FejdStartup.Start, Player.OnSpawned
-		private static TMP_FontAsset font;
-
-		[HarmonyPatch(typeof(FejdStartup), nameof(FejdStartup.Start))]
-		private class FejdStartup_Start {
-			private static void Postfix() {
-				font = GameObject.Find("GuiRoot/GUI/StartGui/EULA/Popup/Scroll View/Viewport/Content/EulaImportantFirstText").GetComponent<TextMeshProUGUI>().font;
-			}
-		}
-
-		private static Sprite GetItemIcon(string itemPrefab) {
-			return ObjectDB.instance.GetItemPrefab(itemPrefab).GetComponent<ItemDrop>().m_itemData.m_shared.m_icons[0];
-		}
-		private static TMPro.TextMeshProUGUI deaths;
-		private static void UpdateDeaths() {
-			deaths?.text = Game.instance.GetPlayerProfile().GetStat(PlayerStatType.Deaths).ToString();
-		}
-		private readonly static string logoutsKey = "logouts";
-		private static TMPro.TextMeshProUGUI logouts;
-		private static void UpdateLogouts() {
-			if (Player.m_localPlayer.m_customData.TryGetValue(logoutsKey, out string savedLogouts)) {
-				logouts.text = savedLogouts;
-			}
-			else {
-				logouts.text = "0";
-			}
-		}
-		private static TMPro.TextMeshProUGUI timer;
-		private static bool unlockedRecipes = false;
-
-		[HarmonyPatch(typeof(Player), nameof(Player.OnSpawned))]
-		private class Player_OnSpawned {
-			private static Transform healthpanel;
-			private static GameObject LeftOf(string name, Transform parent, RectTransform from) {
-				GameObject gameObject = new(name);
-				gameObject.transform.SetParent(parent);
-				RectTransform goTransform = gameObject.AddComponent<RectTransform>();
-				goTransform.sizeDelta = from.sizeDelta;
-				goTransform.anchoredPosition = from.anchoredPosition - new Vector2(from.sizeDelta.x + 1, 0);
-				goTransform.anchorMax = from.anchorMax;
-				goTransform.anchorMin = from.anchorMin;
-				return gameObject;
-			}
-			private static void DefaultFont(ref TMPro.TextMeshProUGUI tmpGui, Color color, float ratio) {
-				tmpGui.font = font;
-				tmpGui.material = font.material;
-				tmpGui.color = color;
-				tmpGui.alignment = TextAlignmentOptions.Center;
-				tmpGui.fontMaterial.EnableKeyword("OUTLINE_ON");
-				tmpGui.outlineColor = Color.black;
-				tmpGui.outlineWidth = 0.1f;
-				tmpGui.fontStyle = FontStyles.Bold;
-				tmpGui.fontSize = Hud.instance.transform.Find("hudroot/healthpanel/food0").GetComponent<RectTransform>().sizeDelta.x * ratio;
-			}
-			private static TMPro.TextMeshProUGUI AddCounter(string name, string item, int y) {
-				Transform healthPanel = Hud.instance.transform.Find("hudroot/healthpanel");
-				RectTransform foodTransform = healthPanel.transform.Find("food" + y).GetComponent<RectTransform>();
-
-				GameObject background = LeftOf(name + "Bkg", healthPanel, foodTransform);
-				JsonUtility.FromJsonOverwrite(JsonUtility.ToJson(foodTransform.GetComponent<UnityEngine.UI.Image>()), background.AddComponent<UnityEngine.UI.Image>());
-
-				GameObject icon = LeftOf(name + "Icon", healthPanel, foodTransform);
-				icon.AddComponent<UnityEngine.UI.Image>().sprite = GetItemIcon(item);
-
-				GameObject text = LeftOf(name + "Text", healthPanel, foodTransform);
-				text.SetActive(false);
-				TMPro.TextMeshProUGUI tmpGui = text.AddComponent<TextMeshProUGUI>();
-				DefaultFont(ref tmpGui, Color.white, 1f / 2);
-				text.SetActive(true);
-				tmpGui.alignment = TextAlignmentOptions.BottomRight;
-				return tmpGui;
-			}
-			private static TMPro.TextMeshProUGUI AddTimer() {
-				Transform hudroot = Hud.instance.transform.Find("hudroot");
-				RectTransform healthTransform = hudroot.Find("healthpanel").GetComponent<RectTransform>();
-				GameObject clock = new("timer");
-				clock.SetActive(false);
-				clock.transform.SetParent(hudroot);
-
-				RectTransform clockTransform = clock.AddComponent<RectTransform>();
-				clockTransform.sizeDelta = new Vector2(1000, 0);
-				clockTransform.anchoredPosition = healthTransform.anchoredPosition + new Vector2(71 * healthTransform.sizeDelta.x / 100, -112 * healthTransform.sizeDelta.y / 100);
-				clockTransform.anchorMax = healthTransform.anchorMax;
-				clockTransform.anchorMin = healthTransform.anchorMin;
-
-				TMPro.TextMeshProUGUI tmpGui = clock.AddComponent<TextMeshProUGUI>();
-				DefaultFont(ref tmpGui, new(1f, 0.717f, 0.360f, 1f), 2f / 3);
-				clock.SetActive(true);
-				tmpGui.text = $"<mspace=0.5em>{TimeSpan.FromSeconds(settings.time)}</mspace>";
-				return tmpGui;
-			}
-			private static void Postfix(Player __instance) {
-				healthpanel = Hud.instance.transform.Find("hudroot/healthpanel");
-				int y = 0;
-				if (settings.showDeaths && deaths == null) {
-					deaths = AddCounter("deaths", "Charredskull", y);
-					UpdateDeaths();
-					y = 1;
-				}
-
-				if (settings.showLogouts && logouts == null) {
-					logouts = AddCounter("logouts", "RoundLog", y);
-					UpdateLogouts();
-				}
-
-				if (settings.showTimer && timer == null) {
-					timer = AddTimer();
-				}
-
-				if (settings.unlockRecipes && !unlockedRecipes) {
-					unlockedRecipes = true;
-					foreach (GameObject prefab in ObjectDB.instance.m_items) {
-						ItemDrop itemDrop = prefab.GetComponent<ItemDrop>();
-						if (itemDrop == null || itemDrop.m_itemData == null) {
-							continue;
-						}
-						string name = itemDrop.m_itemData.m_shared.m_name;
-						if (!__instance.m_knownMaterial.Contains(name)) {
-							__instance.m_knownMaterial.Add(name);
-						}
-					}
-					__instance.UpdateKnownRecipesList();
-					MessageHud.instance.m_unlockMsgQueue.Clear();
-					MessageHud.instance.m_unlockMsgCount = 0;
-				}
-
-				__instance.m_runSpeed *= settings.runSpeed;
-				__instance.m_jumpForce *= settings.jumpForce;
-			}
-		}
-		#endregion
 		#region showDeaths: Player.OnDeath
 		[HarmonyPatch(typeof(Player), nameof(Player.OnDeath))]
 		private class Player_OnDeath {
@@ -1339,7 +1350,7 @@ namespace Speedchoice {
 		private class Player_Update {
 			private static void Postfix(Player __instance) {
 				if (Game.instance && __instance.TakeInput() && Input.anyKeyDown) {
-					if (!ZRoutedRpc.instance.m_server && !isSynced) {
+					if (!isSynced && !ZRoutedRpc.instance.m_server) {
 						isSynced = true;
 						ZRoutedRpc.instance.InvokeRoutedRPC(ZRoutedRpc.instance.GetServerPeerID(), "GetTimer", "GetTimer");
 					}

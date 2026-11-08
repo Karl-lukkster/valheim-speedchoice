@@ -4,6 +4,6 @@
     "version_number": "1.1.0",
     "website_url": "https://github.com/Karl-lukkster/valheim-speedchoice",
     "dependencies": [
-        "denikson-BepInExPack_Valheim-5.4.2350"
+        "denikson-BepInExPack_Valheim-5.4.2351"
     ]
 }

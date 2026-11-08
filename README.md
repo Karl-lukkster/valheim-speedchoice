@@ -74,12 +74,13 @@ These settings are not included in the UI. One can utilize them by changing the 
 
 ## Active Development
 
-1. Copy `Valheim` to `Valheim_Dev`
+1. Copy `Valheim` to `Valheim - Copy`
 	- `<Steam Location>/steamapps/common/Valheim/`
-	- `<Steam Location>/steamapps/common/Valheim_Dev/`
-2. Install `BepInEx` to `Valheim_Dev`
+	- `<Steam Location>/steamapps/common/Valheim - Copy/`
+2. Install `BepInEx` to `Valheim - Copy`
 	1. Download from [BepInExPack Valheim](https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/)
 	2. Extract contents
-	3. Copy all contents of `/BepInExPack_Valheim/` to `<Steam Location>/steamapps/common/Valheim_Dev/`
-3. Edit `Speedchoice.csproj`, update `<ValheimPath>` to point at `<Steam Location>/steamapps/common/Valheim_Dev/`
+	3. Copy all contents of `/BepInExPack_Valheim/` to `<Steam Location>/steamapps/common/Valheim - Copy/`
+	4. Make a new folder `<Steam Location>/steamapps/common/Valheim - Copy/BepInEx/plugins`
+3. Edit `Speedchoice.csproj`, update `<ValheimPath>` to point at `<Steam Location>/steamapps/common/Valheim - Copy/`
 4. Compile, Build, Run the `Debug` profile. 

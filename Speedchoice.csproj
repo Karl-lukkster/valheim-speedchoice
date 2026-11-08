@@ -4,7 +4,7 @@
     <RootNamespace>Speedchoice</RootNamespace>
     <AssemblyName>Speedchoice</AssemblyName>
     
-    <ValheimPath>C:/Program Files (x86)/Steam/steamapps/common/Valheim_Dev</ValheimPath>
+    <ValheimPath>C:/Program Files (x86)/Steam/steamapps/common/Valheim - Copy</ValheimPath>
     <ManagedPath>$(ValheimPath)/valheim_Data/Managed</ManagedPath>
     <BepInExPath>$(ValheimPath)/BepInEx/core</BepInExPath>
 
@@ -25,7 +25,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <StartAction>Program</StartAction>
     <StartProgram>$(ValheimPath)/valheim.exe</StartProgram>
-    <StartArguments>-console</StartArguments>
+    <StartArguments>-console -force-vulkan</StartArguments>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
