@@ -1,5 +1,24 @@
 # Changelog
 
+## Version 1.1.1
+
+Valheim 1.0.21 compatability.
+
+### Presets
+
+- <b>`Randomizer`</b> - Now defaults to showing player statistics.
+
+### Toggles
+
+- <b>`Boss Reveals`</b> - Updated ordering and names of revealed locations. Bosses end up on top and every name matches the in-game description. 
+- <b>`No Build Stations`</b> - Reworked timing on global key additions to resolve cases where some keys wouldn't apply on spawn.
+- <b>`Show Deaths`</b> - Compatability with 1.0.21, changes to the "GetStat" method.
+
+### Secret Settings
+
+- <b>`unlockPieces`</b> - Reworked timing on global key additions to resolve cases where some keys wouldn't apply on spawn.
+- <b>`unlockRecipes`</b> - Reworked timing on global key additions to resolve cases where some keys wouldn't apply on spawn.
+
 ## Version 1.1.0
 
 Valheim 1.0 update! 

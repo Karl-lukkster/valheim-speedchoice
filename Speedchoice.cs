@@ -153,9 +153,9 @@ namespace Speedchoice {
 					{ "No Build Stations", true },
 					{ "No Craft Cost", true },
 					{ "No Craft Levels", false },
-					{ "Show Deaths", false },
-					{ "Show Logouts", false },
-					{ "Show Timer", false },
+					{ "Show Deaths", true },
+					{ "Show Logouts", true },
+					{ "Show Timer", true },
 					{ "Structure Loot", true },
 					{ "Where's my Portal?", true }
 				}
@@ -1130,7 +1130,6 @@ namespace Speedchoice {
 		}
 		private static TMPro.TextMeshProUGUI deaths;
 		private static void UpdateDeaths() {
-			//TODO: difficulty requiement current?
 			deaths?.text = Game.instance.GetPlayerProfile().GetStat(PlayerStatType.Deaths, DifficultyRequirement.Any).ToString();
 		}
 		private readonly static string logoutsKey = "logouts";
